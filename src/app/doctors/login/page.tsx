@@ -4,15 +4,20 @@ import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 
-type RegisteredPatient = {
+type RegisteredDoctor = {
   id: string;
   name: string;
   email: string;
   phone: string;
-  age: number;
+  specialty: string;
+  qualification: string;
+  experienceYears: number;
+  hospital: string;
+  location: string;
+  consultationFee: number;
 };
 
-export default function LoginPage() {
+export default function DoctorLoginPage() {
   const router = useRouter();
 
   const [email, setEmail] = useState("");
@@ -52,28 +57,28 @@ export default function LoginPage() {
 
     setLoading(true);
 
-    const storedPatient = localStorage.getItem("registeredPatient");
+    const storedDoctor = localStorage.getItem("registeredDoctor");
 
-    if (!storedPatient) {
+    if (!storedDoctor) {
       setErrors({
         email: "",
         password: "",
         general:
-          "No registered patient account found. Please register first.",
+          "No registered doctor account found. Please register first.",
       });
 
       setLoading(false);
       return;
     }
 
-    const patient: RegisteredPatient = JSON.parse(storedPatient);
+    const doctor: RegisteredDoctor = JSON.parse(storedDoctor);
 
     const storedPassword = localStorage.getItem(
-      "registeredPatientPassword"
+      "registeredDoctorPassword"
     );
 
     if (
-      patient.email.toLowerCase() !== email.trim().toLowerCase() ||
+      doctor.email.toLowerCase() !== email.trim().toLowerCase() ||
       storedPassword !== password
     ) {
       setErrors({
@@ -87,13 +92,18 @@ export default function LoginPage() {
     }
 
     localStorage.setItem(
-      "loggedInPatient",
+      "loggedInDoctor",
       JSON.stringify({
-        id: patient.id,
-        name: patient.name,
-        email: patient.email,
-        phone: patient.phone,
-        age: patient.age,
+        id: doctor.id,
+        name: doctor.name,
+        email: doctor.email,
+        phone: doctor.phone,
+        specialty: doctor.specialty,
+        qualification: doctor.qualification,
+        experienceYears: doctor.experienceYears,
+        hospital: doctor.hospital,
+        location: doctor.location,
+        consultationFee: doctor.consultationFee,
       })
     );
 
@@ -104,7 +114,7 @@ export default function LoginPage() {
     <main className="min-h-screen bg-[#f7faf9] px-4 py-8 sm:px-6">
       <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-5xl items-center justify-center">
         <div className="grid w-full overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl lg:grid-cols-2">
-          
+
           {/* Left Side */}
           <div className="hidden bg-emerald-700 p-10 text-white lg:flex lg:flex-col lg:justify-between">
             <div>
@@ -116,29 +126,29 @@ export default function LoginPage() {
                 <div>
                   <p className="text-lg font-bold">Schedula</p>
                   <p className="text-sm text-emerald-100">
-                    Healthcare made simple
+                    Doctor Portal
                   </p>
                 </div>
               </Link>
 
               <div className="mt-20">
                 <p className="text-sm font-semibold uppercase tracking-wider text-emerald-100">
-                  Welcome back
+                  Doctor Portal
                 </p>
 
                 <h1 className="mt-4 text-4xl font-bold leading-tight">
-                  Your healthcare is just a few clicks away.
+                  Manage your appointments with ease.
                 </h1>
 
                 <p className="mt-5 max-w-md leading-7 text-emerald-50">
-                  Login to discover doctors, check available slots, and manage
-                  your appointments.
+                  Login to manage your profile, availability, appointments,
+                  and patient visits.
                 </p>
               </div>
             </div>
 
             <p className="text-sm text-emerald-100">
-              Simple · Convenient · Connected
+              Simple · Professional · Connected
             </p>
           </div>
 
@@ -152,17 +162,21 @@ export default function LoginPage() {
                 ← Back to Schedula
               </Link>
 
-              <h2 className="mt-4 text-3xl font-bold tracking-tight text-slate-900">
-                Login
+              <p className="mt-5 text-sm font-semibold uppercase tracking-wider text-emerald-600">
+                Doctor Login
+              </p>
+
+              <h2 className="mt-2 text-3xl font-bold tracking-tight text-slate-900">
+                Welcome back
               </h2>
 
               <p className="mt-2 text-sm text-slate-500">
-                Login to your patient account.
+                Login to access your doctor dashboard.
               </p>
             </div>
 
             <form onSubmit={handleSubmit} noValidate className="space-y-5">
-              
+
               {/* Email */}
               <div>
                 <label
@@ -185,7 +199,7 @@ export default function LoginPage() {
                       general: "",
                     });
                   }}
-                  placeholder="you@example.com"
+                  placeholder="doctor@example.com"
                   className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
                 />
 
@@ -229,7 +243,7 @@ export default function LoginPage() {
                 )}
               </div>
 
-              {/* General Error */}
+              {/* Error */}
               {errors.general && (
                 <div
                   className="rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700"
@@ -239,23 +253,23 @@ export default function LoginPage() {
                 </div>
               )}
 
-              {/* Login Button */}
+              {/* Button */}
               <button
                 type="submit"
                 disabled={loading}
                 className="w-full rounded-xl bg-emerald-600 px-5 py-3.5 text-sm font-bold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {loading ? "Logging in..." : "Login"}
+                {loading ? "Logging in..." : "Doctor Login"}
               </button>
             </form>
 
             <p className="mt-6 text-center text-sm text-slate-500">
-              Don&apos;t have an account?{" "}
+              Don&apos;t have a doctor account?{" "}
               <Link
-                href="/register"
+                href="/doctors/register"
                 className="font-semibold text-emerald-700 hover:text-emerald-800"
               >
-                Register
+                Register as Doctor
               </Link>
             </p>
           </div>

@@ -1,14 +1,260 @@
-﻿"use client";
-import { useEffect, useMemo, useState } from "react";
-import type { Appointment, AppointmentStatus } from "@/types/appointment";
-type Filter = "all" | AppointmentStatus;
-type ApiResponse = { data: Appointment[] };
-const styles: Record<AppointmentStatus, string> = { confirmed: "bg-emerald-50 text-emerald-800 ring-emerald-200", pending: "bg-amber-50 text-amber-800 ring-amber-200", cancelled: "bg-stone-100 text-stone-600 ring-stone-200" };
-const time = (value: string) => new Intl.DateTimeFormat("en", { hour: "numeric", minute: "2-digit" }).format(new Date(value));
+﻿import Link from "next/link";
+
+const features = [
+  {
+    title: "Trusted Doctors",
+    description: "Connect with experienced healthcare professionals.",
+  },
+  {
+    title: "Easy Booking",
+    description: "Find a doctor and book an appointment in a few clicks.",
+  },
+  {
+    title: "Flexible Scheduling",
+    description: "Choose from available dates and time slots.",
+  },
+];
+
 export default function Home() {
-  const [items, setItems] = useState<Appointment[]>([]); const [filter, setFilter] = useState<Filter>("all"); const [selectedId, setSelectedId] = useState<string>(); const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
-  useEffect(() => { fetch("/api/appointments").then((response) => response.ok ? response.json() as Promise<ApiResponse> : Promise.reject()).then(({ data }) => { setItems(data); setSelectedId(data[0]?.id); setStatus("ready"); }).catch(() => setStatus("error")); }, []);
-  const visible = useMemo(() => filter === "all" ? items : items.filter((item) => item.status === filter), [items, filter]);
-  const selected = items.find((item) => item.id === selectedId); const counts = items.reduce<Record<Filter, number>>((total, item) => ({ ...total, all: total.all + 1, [item.status]: total[item.status] + 1 }), { all: 0, confirmed: 0, pending: 0, cancelled: 0 });
-  return <main className="min-h-screen px-4 py-5 sm:px-8 sm:py-8 lg:px-12"><div className="mx-auto max-w-7xl"><header className="flex flex-col gap-6 border-b border-[var(--line)] pb-7 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-center gap-3"><div className="grid size-10 place-items-center rounded-xl bg-[var(--brand)] font-serif text-xl text-white">S</div><div><p className="text-lg font-semibold tracking-tight">Schedula</p><p className="text-sm text-[var(--muted)]">Clinic operations</p></div></div><button className="rounded-lg bg-[var(--brand)] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[var(--brand-deep)]" type="button">New appointment</button></header><section className="py-8" aria-labelledby="dashboard-title"><p className="text-sm font-medium text-[var(--brand)]">Friday, 28 August</p><div className="mt-2 flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><h1 id="dashboard-title" className="text-3xl font-semibold tracking-tight sm:text-4xl">Today&apos;s appointments</h1><p className="mt-2 max-w-xl text-[var(--muted)]">Keep the day moving with a clear view of every patient and visit status.</p></div><p className="text-sm text-[var(--muted)]"><span className="font-semibold text-[var(--ink)]">{counts.confirmed} confirmed</span> of {counts.all} visits</p></div></section><div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]"><section className="overflow-hidden rounded-xl border border-[var(--line)] bg-white" aria-labelledby="schedule-title"><div className="flex flex-col gap-4 border-b border-[var(--line)] px-5 py-4 sm:flex-row sm:items-center sm:justify-between"><h2 id="schedule-title" className="font-semibold">Schedule</h2><div className="flex gap-1 rounded-lg bg-stone-100 p-1" role="group" aria-label="Filter appointments">{(["all", "confirmed", "pending"] as Filter[]).map((item) => <button key={item} type="button" onClick={() => setFilter(item)} className={`rounded-md px-3 py-1.5 text-sm capitalize ${filter === item ? "bg-white font-medium shadow-sm" : "text-[var(--muted)] hover:text-[var(--ink)]"}`}>{item} <span className="ml-1 text-xs">{counts[item]}</span></button>)}</div></div>{status === "loading" && <div className="space-y-4 p-5" aria-busy="true" aria-label="Loading appointments">{[1, 2, 3].map((item) => <div className="h-20 animate-pulse rounded-lg bg-stone-100" key={item} />)}</div>}{status === "error" && <div className="p-8 text-center" role="alert"><p className="font-medium">We couldn&apos;t load appointments.</p><button className="mt-3 text-sm font-semibold text-[var(--brand)] underline" onClick={() => window.location.reload()} type="button">Try again</button></div>}{status === "ready" && <ul className="divide-y divide-[var(--line)]" role="list">{visible.map((item) => <li key={item.id}><button type="button" onClick={() => setSelectedId(item.id)} aria-pressed={selectedId === item.id} className={`grid w-full grid-cols-[4.5rem_minmax(0,1fr)] gap-3 px-5 py-4 text-left hover:bg-emerald-50/40 ${selectedId === item.id ? "bg-emerald-50/60" : ""}`}><time className="pt-1 text-sm font-medium text-[var(--muted)]">{time(item.startsAt)}</time><div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-semibold">{item.patient.name} <span className="font-normal text-[var(--muted)]">· {item.durationMinutes} min</span></p><p className="mt-0.5 truncate text-sm text-[var(--muted)]">{item.reason} · {item.clinician}</p></div><span className={`w-fit rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset ${styles[item.status]}`}>{item.status}</span></div></button></li>)}</ul>}{status === "ready" && visible.length === 0 && <div className="p-10 text-center"><p className="font-medium">No appointments match this filter.</p><button type="button" onClick={() => setFilter("all")} className="mt-2 text-sm font-semibold text-[var(--brand)]">Show all appointments</button></div>}</section><aside className="rounded-xl border border-[var(--line)] bg-white p-5" aria-live="polite"><p className="text-sm font-medium text-[var(--muted)]">Appointment details</p>{selected ? <div className="mt-5"><div className="flex items-center gap-3"><span className="grid size-11 place-items-center rounded-full bg-emerald-100 text-sm font-semibold text-[var(--brand-deep)]">{selected.patient.initials}</span><div><h2 className="font-semibold">{selected.patient.name}</h2><p className="text-sm text-[var(--muted)]">{selected.patient.age} years old</p></div></div><dl className="mt-6 space-y-4 text-sm"><div><dt className="text-[var(--muted)]">Visit</dt><dd className="mt-1 font-medium">{selected.reason}</dd></div><div><dt className="text-[var(--muted)]">Time & room</dt><dd className="mt-1 font-medium">{time(selected.startsAt)} · {selected.room}</dd></div><div><dt className="text-[var(--muted)]">Care team</dt><dd className="mt-1 font-medium">{selected.clinician}<br />{selected.specialty}</dd></div></dl><button type="button" className="mt-7 w-full rounded-lg border border-[var(--line)] px-4 py-2.5 text-sm font-semibold hover:border-[var(--brand)] hover:text-[var(--brand)]">Open patient record</button></div> : <p className="mt-5 text-sm text-[var(--muted)]">Select an appointment to see visit details.</p>}</aside></div></div></main>;
+  return (
+    <main className="min-h-screen bg-[#f7faf9] text-slate-900">
+      {/* Navbar */}
+      <header className="border-b border-slate-200 bg-white">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4 lg:px-8">
+          <Link href="/" className="flex items-center gap-3">
+            <div className="grid size-10 place-items-center rounded-xl bg-emerald-600 text-lg font-bold text-white">
+              S
+            </div>
+
+            <div>
+              <p className="text-lg font-bold tracking-tight">
+                Schedula
+              </p>
+
+              <p className="text-xs text-slate-500">
+                Healthcare made simple
+              </p>
+            </div>
+          </Link>
+
+          {/* Patient Navigation */}
+          <nav className="flex items-center gap-2">
+            <Link
+              href="/appointments"
+              className="rounded-lg px-3.5 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+            >
+              My Appointments
+            </Link>
+
+            <Link
+              href="/login"
+              className="rounded-lg px-3.5 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+            >
+              Login
+            </Link>
+
+            <Link
+              href="/register"
+              className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
+            >
+              Register
+            </Link>
+          </nav>
+        </div>
+      </header>
+
+      {/* Hero */}
+      <section className="mx-auto grid max-w-7xl items-center gap-10 px-6 py-14 lg:grid-cols-2 lg:px-8 lg:py-20">
+        <div>
+          <span className="inline-flex rounded-full bg-emerald-100 px-4 py-2 text-sm font-semibold text-emerald-700">
+            Your health, our priority
+          </span>
+
+          <h1 className="mt-6 max-w-2xl text-4xl font-bold leading-tight tracking-tight sm:text-5xl lg:text-6xl">
+            Find the right doctor and book your appointment easily.
+          </h1>
+
+          <p className="mt-6 max-w-xl text-lg leading-8 text-slate-600">
+            Schedula helps you discover trusted doctors, view their
+            availability, and book appointments at a time that works for you.
+          </p>
+
+          {/* Main Actions */}
+          <div className="mt-8 flex flex-wrap items-center gap-3">
+            {/* Doctor Register */}
+            <Link
+              href="/doctors/register"
+              className="rounded-xl bg-emerald-600 px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-700"
+            >
+              Doctor Register
+            </Link>
+
+            {/* Find a Doctor */}
+            <Link
+              href="/doctors"
+              className="rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-700 transition hover:border-emerald-500 hover:text-emerald-700"
+            >
+              Find a Doctor
+            </Link>
+          </div>
+
+          {/* Doctor Login */}
+          <div className="mt-4">
+            <Link
+              href="/doctors/login"
+              className="text-sm font-semibold text-emerald-700 hover:text-emerald-800 hover:underline"
+            >
+              Already a doctor? Login here →
+            </Link>
+          </div>
+
+          <p className="mt-4 text-sm text-slate-500">
+            Patients can find doctors and book appointments. Doctors can
+            register and manage their availability.
+          </p>
+        </div>
+
+        {/* Hero Card */}
+        <div className="relative">
+          <div className="rounded-3xl border border-emerald-100 bg-white p-5 shadow-xl shadow-emerald-900/5 sm:p-7">
+            <div className="rounded-2xl bg-emerald-50 p-5 sm:p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-slate-500">
+                    Next appointment
+                  </p>
+
+                  <h2 className="mt-1 text-xl font-bold">
+                    General Medicine
+                  </h2>
+                </div>
+
+                <div className="grid size-12 place-items-center rounded-full bg-emerald-600 text-base font-bold text-white">
+                  AR
+                </div>
+              </div>
+
+              <div className="mt-5 rounded-xl bg-white p-4 sm:p-5">
+                <p className="font-semibold">
+                  Dr. Anika Rao
+                </p>
+
+                <p className="mt-1 text-sm text-slate-500">
+                  General Medicine · 12 years experience
+                </p>
+
+                <div className="mt-4 grid grid-cols-2 gap-3">
+                  <div className="rounded-lg bg-slate-50 p-3">
+                    <p className="text-xs text-slate-500">
+                      Date
+                    </p>
+
+                    <p className="mt-1 font-semibold">
+                      Tomorrow
+                    </p>
+                  </div>
+
+                  <div className="rounded-lg bg-slate-50 p-3">
+                    <p className="text-xs text-slate-500">
+                      Time
+                    </p>
+
+                    <p className="mt-1 font-semibold">
+                      10:00 AM
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-5 flex items-center justify-between">
+              <div>
+                <p className="text-sm text-slate-500">
+                  Consultation fee
+                </p>
+
+                <p className="text-xl font-bold">
+                  ₹499
+                </p>
+              </div>
+
+              <span className="rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-semibold text-emerald-700">
+                Available
+              </span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Features */}
+      <section className="border-y border-slate-200 bg-white">
+        <div className="mx-auto max-w-7xl px-6 py-14 lg:px-8">
+          <div className="max-w-2xl">
+            <p className="text-sm font-bold uppercase tracking-wider text-emerald-600">
+              Why Schedula
+            </p>
+
+            <h2 className="mt-2 text-3xl font-bold tracking-tight">
+              Healthcare booking made simple.
+            </h2>
+          </div>
+
+          <div className="mt-8 grid gap-5 md:grid-cols-3">
+            {features.map((feature, index) => (
+              <div
+                key={feature.title}
+                className="rounded-2xl border border-slate-200 p-5"
+              >
+                <div className="grid size-9 place-items-center rounded-lg bg-emerald-100 text-sm font-bold text-emerald-700">
+                  {index + 1}
+                </div>
+
+                <h3 className="mt-4 text-lg font-bold">
+                  {feature.title}
+                </h3>
+
+                <p className="mt-2 leading-7 text-slate-600">
+                  {feature.description}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section className="mx-auto max-w-7xl px-6 py-14 lg:px-8">
+        <div className="rounded-3xl bg-emerald-700 px-6 py-11 text-center text-white sm:px-12">
+          <h2 className="text-3xl font-bold tracking-tight">
+            Ready to take care of your health?
+          </h2>
+
+          <p className="mx-auto mt-3 max-w-xl text-emerald-50">
+            Create your account and start exploring doctors and available
+            appointments.
+          </p>
+
+          <Link
+            href="/register"
+            className="mt-7 inline-flex rounded-xl bg-white px-6 py-3 text-sm font-bold text-emerald-700 transition hover:bg-emerald-50"
+          >
+            Register Now
+          </Link>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="border-t border-slate-200 bg-white">
+        <div className="mx-auto flex max-w-7xl flex-col gap-2 px-6 py-6 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between lg:px-8">
+          <p>
+            © 2026 Schedula. All rights reserved.
+          </p>
+
+          <p>
+            Healthcare appointment platform
+          </p>
+        </div>
+      </footer>
+    </main>
+  );
 }
