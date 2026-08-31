@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import type { Appointment } from "@/types/appointment";
 
-export default function BookingPage() {
+function BookingContent() {
   const searchParams = useSearchParams();
   const doctorId = searchParams.get("doctorId");
 
@@ -66,10 +66,7 @@ export default function BookingPage() {
     return (
       <main className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
         <div className="text-center">
-          <h1 className="text-xl font-semibold">
-            Doctor not found
-          </h1>
-
+          <h1 className="text-xl font-semibold">Doctor not found</h1>
           <p className="mt-2 text-gray-500">
             Please select a doctor from the doctor listing.
           </p>
@@ -85,24 +82,17 @@ export default function BookingPage() {
           {!confirmed ? (
             <>
               <div className="mb-8">
-                <h1 className="text-3xl font-bold">
-                  Book Appointment
-                </h1>
-
+                <h1 className="text-3xl font-bold">Book Appointment</h1>
                 <p className="mt-2 text-gray-500">
                   Select a date and time for your appointment.
                 </p>
               </div>
 
               <section className="mb-8 rounded-xl border border-gray-200 p-5">
-                <p className="text-sm text-gray-500">
-                  Selected Doctor
-                </p>
-
+                <p className="text-sm text-gray-500">Selected Doctor</p>
                 <h2 className="mt-2 text-xl font-semibold">
                   {selectedDoctor.clinician}
                 </h2>
-
                 <p className="mt-1 text-gray-500">
                   {selectedDoctor.specialty}
                 </p>
@@ -120,9 +110,7 @@ export default function BookingPage() {
                   id="appointment-date"
                   type="date"
                   value={selectedDate}
-                  onChange={(event) =>
-                    setSelectedDate(event.target.value)
-                  }
+                  onChange={(event) => setSelectedDate(event.target.value)}
                   className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-black"
                 />
               </section>
@@ -175,43 +163,27 @@ export default function BookingPage() {
 
               <div className="mt-8 rounded-xl border border-gray-200 p-5 text-left">
                 <div>
-                  <p className="text-sm text-gray-500">
-                    Doctor
-                  </p>
-
+                  <p className="text-sm text-gray-500">Doctor</p>
                   <p className="mt-1 font-semibold">
                     {selectedDoctor.clinician}
                   </p>
                 </div>
 
                 <div className="mt-5">
-                  <p className="text-sm text-gray-500">
-                    Specialty
-                  </p>
-
+                  <p className="text-sm text-gray-500">Specialty</p>
                   <p className="mt-1 font-semibold">
                     {selectedDoctor.specialty}
                   </p>
                 </div>
 
                 <div className="mt-5">
-                  <p className="text-sm text-gray-500">
-                    Date
-                  </p>
-
-                  <p className="mt-1 font-semibold">
-                    {selectedDate}
-                  </p>
+                  <p className="text-sm text-gray-500">Date</p>
+                  <p className="mt-1 font-semibold">{selectedDate}</p>
                 </div>
 
                 <div className="mt-5">
-                  <p className="text-sm text-gray-500">
-                    Time
-                  </p>
-
-                  <p className="mt-1 font-semibold">
-                    {selectedTime}
-                  </p>
+                  <p className="text-sm text-gray-500">Time</p>
+                  <p className="mt-1 font-semibold">{selectedTime}</p>
                 </div>
               </div>
             </div>
@@ -219,5 +191,19 @@ export default function BookingPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function BookingPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="flex min-h-screen items-center justify-center bg-gray-50">
+          <p className="text-gray-500">Loading booking page...</p>
+        </main>
+      }
+    >
+      <BookingContent />
+    </Suspense>
   );
 }
