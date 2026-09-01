@@ -1,3 +1,43 @@
 import type { Doctor } from "@/types/doctor";
 
-export const doctors: Doctor[] = [];
+export const doctors: Doctor[] = [
+  {
+    id: "doctor-aman",
+    name: "Dr. Aman",
+    specialty: "General Medicine",
+    qualification: "MBBS, MD",
+    experienceYears: 8,
+    email: "aman@example.com",
+    phone: "+91 9876543210",
+    hospital: "City Care Hospital",
+    location: "Delhi",
+    consultationFee: 499,
+    bio: "Experienced general physician providing comprehensive healthcare and preventive care.",
+  },
+  {
+    id: "doctor-narendra",
+    name: "Dr. Narendra",
+    specialty: "Cardiology",
+    qualification: "MBBS, MD, DM",
+    experienceYears: 10,
+    email: "narendra@example.com",
+    phone: "+91 9876543211",
+    hospital: "Heart Care Hospital",
+    location: "Delhi",
+    consultationFee: 699,
+    bio: "Cardiology specialist focused on heart health, diagnosis, and long-term patient care.",
+  },
+  {
+    id: "doctor-anika",
+    name: "Dr. Anika Rao",
+    specialty: "General Medicine",
+    qualification: "MBBS, MD",
+    experienceYears: 12,
+    email: "anika@example.com",
+    phone: "+91 9876543212",
+    hospital: "Sunrise Medical Center",
+    location: "Mumbai",
+    consultationFee: 599,
+    bio: "General medicine specialist with extensive experience in primary and preventive healthcare.",
+  },
+];

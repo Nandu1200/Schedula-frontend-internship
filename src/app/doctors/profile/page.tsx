@@ -18,14 +18,19 @@ type DoctorProfile = {
 };
 
 export default function DoctorProfilePage() {
-  const [profile, setProfile] = useState<DoctorProfile | null>(null);
-  const [formData, setFormData] = useState<DoctorProfile | null>(null);
+  const [profile, setProfile] =
+    useState<DoctorProfile | null>(null);
+
+  const [formData, setFormData] =
+    useState<DoctorProfile | null>(null);
 
   const [editing, setEditing] = useState(false);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
 
-  const [slots, setSlots] = useState<AvailabilitySlot[]>([]);
+  const [slots, setSlots] =
+    useState<AvailabilitySlot[]>([]);
+
   const [slotDate, setSlotDate] = useState("");
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
@@ -36,8 +41,14 @@ export default function DoctorProfilePage() {
     const now = new Date();
 
     const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, "0");
-    const day = String(now.getDate()).padStart(2, "0");
+
+    const month = String(
+      now.getMonth() + 1
+    ).padStart(2, "0");
+
+    const day = String(
+      now.getDate()
+    ).padStart(2, "0");
 
     return `${year}-${month}-${day}`;
   };
@@ -46,35 +57,52 @@ export default function DoctorProfilePage() {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      const storedDoctor = localStorage.getItem("loggedInDoctor");
+      const storedDoctor =
+        localStorage.getItem("loggedInDoctor");
 
       if (storedDoctor) {
-        const doctor = JSON.parse(storedDoctor) as DoctorProfile;
+        try {
+          const doctor =
+            JSON.parse(
+              storedDoctor
+            ) as DoctorProfile;
 
-        setProfile(doctor);
-        setFormData(doctor);
+          setProfile(doctor);
+          setFormData(doctor);
 
-        const storedSlots = localStorage.getItem(
-          `availabilitySlots-${doctor.id}`
-        );
+          const storedSlots =
+            localStorage.getItem(
+              `availabilitySlots-${doctor.id}`
+            );
 
-        if (storedSlots) {
-          const doctorSlots = JSON.parse(
-            storedSlots
-          ) as AvailabilitySlot[];
+          if (storedSlots) {
+            const doctorSlots =
+              JSON.parse(
+                storedSlots
+              ) as AvailabilitySlot[];
 
-          const validDoctorSlots = doctorSlots.filter(
-            (slot) => slot.doctorId === doctor.id
-          );
+            const validDoctorSlots =
+              doctorSlots.filter(
+                (slot) =>
+                  slot.doctorId === doctor.id
+              );
 
-          setSlots(validDoctorSlots);
+            setSlots(validDoctorSlots);
+          } else {
+            setSlots([]);
+          }
+        } catch {
+          setProfile(null);
+          setFormData(null);
+          setSlots([]);
         }
       }
 
       setLoading(false);
     }, 0);
 
-    return () => window.clearTimeout(timer);
+    return () =>
+      window.clearTimeout(timer);
   }, []);
 
   const handleChange = (
@@ -118,7 +146,9 @@ export default function DoctorProfilePage() {
 
     setProfile(formData);
     setEditing(false);
-    setMessage("Profile updated successfully.");
+    setMessage(
+      "Profile updated successfully."
+    );
   };
 
   const handleAddSlot = (
@@ -132,7 +162,11 @@ export default function DoctorProfilePage() {
       return;
     }
 
-    if (!slotDate || !startTime || !endTime) {
+    if (
+      !slotDate ||
+      !startTime ||
+      !endTime
+    ) {
       setSlotMessage(
         "Please select date, start time and end time."
       );
@@ -179,14 +213,20 @@ export default function DoctorProfilePage() {
       status: "available",
     };
 
-    const updatedSlots = [...slots, newSlot].sort(
-      (first, second) => {
-        const firstValue = `${first.date} ${first.startTime}`;
-        const secondValue = `${second.date} ${second.startTime}`;
+    const updatedSlots = [
+      ...slots,
+      newSlot,
+    ].sort((first, second) => {
+      const firstValue =
+        `${first.date} ${first.startTime}`;
 
-        return firstValue.localeCompare(secondValue);
-      }
-    );
+      const secondValue =
+        `${second.date} ${second.startTime}`;
+
+      return firstValue.localeCompare(
+        secondValue
+      );
+    });
 
     setSlots(updatedSlots);
 
@@ -204,13 +244,42 @@ export default function DoctorProfilePage() {
     );
   };
 
-  const handleDeleteSlot = (slotId: string) => {
+  const handleDeleteSlot = (
+    slotId: string
+  ) => {
     if (!profile) {
       return;
     }
 
+    /*
+     * Find the selected slot first.
+     */
+    const slot = slots.find(
+      (item) => item.id === slotId
+    );
+
+    /*
+     * Booked slots cannot be deleted.
+     */
+    if (!slot) {
+      setSlotMessage(
+        "Availability slot not found."
+      );
+      return;
+    }
+
+    if (slot.status === "booked") {
+      setSlotMessage(
+        "Booked slots cannot be deleted. Cancel the appointment first."
+      );
+      return;
+    }
+
+    /*
+     * Delete only available slots.
+     */
     const updatedSlots = slots.filter(
-      (slot) => slot.id !== slotId
+      (item) => item.id !== slotId
     );
 
     setSlots(updatedSlots);
@@ -243,6 +312,7 @@ export default function DoctorProfilePage() {
     return (
       <main className="min-h-screen bg-[#f7faf9] px-4 py-8 sm:px-6">
         <div className="mx-auto max-w-xl rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+
           <h1 className="text-2xl font-bold text-slate-900">
             Doctor login required
           </h1>
@@ -252,11 +322,12 @@ export default function DoctorProfilePage() {
           </p>
 
           <Link
-            href="/doctors/login"
+            href="/login/doctor"
             className="mt-6 inline-flex rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-700"
           >
             Doctor Login
           </Link>
+
         </div>
       </main>
     );
@@ -264,9 +335,11 @@ export default function DoctorProfilePage() {
 
   return (
     <main className="min-h-screen bg-[#f7faf9] text-slate-900">
+
       {/* Header */}
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5 lg:px-8">
+
           <Link
             href="/doctors/dashboard"
             className="flex items-center gap-3"
@@ -292,12 +365,15 @@ export default function DoctorProfilePage() {
           >
             ← Dashboard
           </Link>
+
         </div>
       </header>
 
       <div className="mx-auto max-w-5xl px-6 py-8 lg:px-8">
+
         {/* Page Heading */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+
           <div>
             <p className="text-sm font-semibold text-emerald-600">
               Doctor Profile
@@ -324,17 +400,23 @@ export default function DoctorProfilePage() {
               Edit Profile
             </button>
           )}
+
         </div>
 
         {/* Profile Card */}
         <section className="mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white">
+
           <div className="border-b border-slate-200 bg-emerald-50 px-6 py-7 sm:px-8">
+
             <div className="flex items-center gap-5">
+
               <div className="grid size-20 place-items-center rounded-full bg-emerald-600 text-2xl font-bold text-white">
                 {profile.name
                   .replace("Dr. ", "")
                   .split(" ")
-                  .map((part) => part[0])
+                  .map(
+                    (part) => part[0]
+                  )
                   .slice(0, 2)
                   .join("")
                   .toUpperCase()}
@@ -354,7 +436,9 @@ export default function DoctorProfilePage() {
                   {profile.experienceYears} years experience
                 </p>
               </div>
+
             </div>
+
           </div>
 
           {/* Profile Form */}
@@ -362,7 +446,9 @@ export default function DoctorProfilePage() {
             onSubmit={handleSubmit}
             className="p-6 sm:p-8"
           >
+
             <div className="grid gap-6 md:grid-cols-2">
+
               {/* Name */}
               <div>
                 <label
@@ -428,7 +514,10 @@ export default function DoctorProfilePage() {
                   onChange={(event) =>
                     handleChange(
                       "phone",
-                      event.target.value.replace(/\D/g, "")
+                      event.target.value.replace(
+                        /\D/g,
+                        ""
+                      )
                     )
                   }
                   className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none disabled:bg-slate-50 disabled:text-slate-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
@@ -581,6 +670,7 @@ export default function DoctorProfilePage() {
                   className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none disabled:bg-slate-50 disabled:text-slate-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
                 />
               </div>
+
             </div>
 
             {message && (
@@ -591,6 +681,7 @@ export default function DoctorProfilePage() {
 
             {editing && (
               <div className="mt-8 flex flex-col-reverse gap-3 border-t border-slate-200 pt-6 sm:flex-row sm:justify-end">
+
                 <button
                   type="button"
                   onClick={() => {
@@ -609,14 +700,18 @@ export default function DoctorProfilePage() {
                 >
                   Save Changes
                 </button>
+
               </div>
             )}
+
           </form>
         </section>
 
         {/* Appointment Availability */}
         <section className="mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white">
+
           <div className="border-b border-slate-200 px-6 py-6 sm:px-8">
+
             <p className="text-sm font-semibold text-emerald-600">
               Appointment Availability
             </p>
@@ -628,6 +723,7 @@ export default function DoctorProfilePage() {
             <p className="mt-2 text-sm text-slate-500">
               Add dates and times when patients can book an appointment.
             </p>
+
           </div>
 
           {/* Add Slot Form */}
@@ -635,7 +731,9 @@ export default function DoctorProfilePage() {
             onSubmit={handleAddSlot}
             className="border-b border-slate-200 p-6 sm:p-8"
           >
+
             <div className="grid gap-5 md:grid-cols-3">
+
               {/* Date */}
               <div>
                 <label
@@ -651,9 +749,12 @@ export default function DoctorProfilePage() {
                   min={today}
                   value={slotDate}
                   onChange={(event) => {
-                    const selectedDate = event.target.value;
+                    const selectedDate =
+                      event.target.value;
 
-                    if (selectedDate < today) {
+                    if (
+                      selectedDate < today
+                    ) {
                       setSlotDate("");
                       setSlotMessage(
                         "Past dates are not allowed."
@@ -661,7 +762,9 @@ export default function DoctorProfilePage() {
                       return;
                     }
 
-                    setSlotDate(selectedDate);
+                    setSlotDate(
+                      selectedDate
+                    );
                     setSlotMessage("");
                   }}
                   className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
@@ -686,7 +789,9 @@ export default function DoctorProfilePage() {
                   type="time"
                   value={startTime}
                   onChange={(event) => {
-                    setStartTime(event.target.value);
+                    setStartTime(
+                      event.target.value
+                    );
                     setSlotMessage("");
                   }}
                   className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
@@ -707,12 +812,15 @@ export default function DoctorProfilePage() {
                   type="time"
                   value={endTime}
                   onChange={(event) => {
-                    setEndTime(event.target.value);
+                    setEndTime(
+                      event.target.value
+                    );
                     setSlotMessage("");
                   }}
                   className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
                 />
               </div>
+
             </div>
 
             {slotMessage && (
@@ -727,11 +835,14 @@ export default function DoctorProfilePage() {
             >
               + Add Availability Slot
             </button>
+
           </form>
 
           {/* Existing Slots */}
           <div className="p-6 sm:p-8">
+
             <div className="flex items-center justify-between">
+
               <div>
                 <h3 className="text-lg font-bold">
                   Existing Slots
@@ -745,10 +856,12 @@ export default function DoctorProfilePage() {
               <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">
                 {slots.length} slots
               </span>
+
             </div>
 
             {slots.length === 0 && (
               <div className="mt-6 rounded-xl border border-dashed border-slate-300 p-8 text-center">
+
                 <p className="font-semibold text-slate-700">
                   No availability slots yet
                 </p>
@@ -756,36 +869,47 @@ export default function DoctorProfilePage() {
                 <p className="mt-1 text-sm text-slate-500">
                   Create your first available slot above.
                 </p>
+
               </div>
             )}
 
             {slots.length > 0 && (
               <div className="mt-6 space-y-3">
+
                 {slots.map((slot) => (
                   <div
                     key={slot.id}
                     className="flex flex-col gap-4 rounded-xl border border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between"
                   >
+
                     <div>
                       <p className="font-semibold text-slate-900">
-                        {new Intl.DateTimeFormat("en-IN", {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        }).format(
-                          new Date(`${slot.date}T00:00:00`)
+                        {new Intl.DateTimeFormat(
+                          "en-IN",
+                          {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          }
+                        ).format(
+                          new Date(
+                            `${slot.date}T00:00:00`
+                          )
                         )}
                       </p>
 
                       <p className="mt-1 text-sm text-slate-500">
-                        {slot.startTime} - {slot.endTime}
+                        {slot.startTime} -{" "}
+                        {slot.endTime}
                       </p>
                     </div>
 
                     <div className="flex items-center gap-3">
+
                       <span
                         className={`rounded-full px-3 py-1.5 text-xs font-semibold capitalize ${
-                          slot.status === "available"
+                          slot.status ===
+                          "available"
                             ? "bg-emerald-50 text-emerald-700"
                             : "bg-slate-100 text-slate-600"
                         }`}
@@ -793,22 +917,38 @@ export default function DoctorProfilePage() {
                         {slot.status}
                       </span>
 
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleDeleteSlot(slot.id)
-                        }
-                        className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50"
-                      >
-                        Delete
-                      </button>
+                      {/* Delete only available slots */}
+                      {slot.status ===
+                      "available" ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleDeleteSlot(
+                              slot.id
+                            )
+                          }
+                          className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50"
+                        >
+                          Delete
+                        </button>
+                      ) : (
+                        <span className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-500">
+                          Booked
+                        </span>
+                      )}
+
                     </div>
+
                   </div>
                 ))}
+
               </div>
             )}
+
           </div>
+
         </section>
+
       </div>
     </main>
   );

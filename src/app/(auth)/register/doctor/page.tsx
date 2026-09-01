@@ -168,7 +168,7 @@ export default function DoctorRegisterPage() {
     );
 
     setTimeout(() => {
-      router.push("/doctors/login");
+      router.push("/login/doctor");
     }, 1000);
   };
 
@@ -602,7 +602,7 @@ export default function DoctorRegisterPage() {
                 <p className="text-sm text-slate-500">
                   Already registered?{" "}
                   <Link
-                    href="/doctors/login"
+                    href="/login/doctor"
                     className="font-semibold text-emerald-700 hover:text-emerald-800"
                   >
                     Doctor Login
