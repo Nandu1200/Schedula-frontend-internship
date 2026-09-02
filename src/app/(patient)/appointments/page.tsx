@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import jsPDF from "jspdf";
 import type { Appointment } from "@/types/appointment";
 import type { AvailabilitySlot } from "@/types/availability";
 
@@ -88,6 +89,14 @@ export default function PatientAppointmentsPage() {
 
   const [activeTab, setActiveTab] =
     useState<AppointmentTab>("upcoming");
+    const [reviewAppointment, setReviewAppointment] =
+  useState<Appointment | null>(null);
+
+const [reviewRating, setReviewRating] =
+  useState(0);
+
+const [reviewComment, setReviewComment] =
+  useState("");
 
   useEffect(() => {
     const loadAppointments = () => {
@@ -406,41 +415,170 @@ export default function PatientAppointmentsPage() {
   };
 
   const handleViewPrescription = (
-    appointment: Appointment
-  ) => {
-    /*
-     * Prescription UI will be connected
-     * when prescription data is added.
-     */
+  appointment: Appointment
+) => {
+   if (!appointment.prescription) {
     window.alert(
-      `Prescription for ${appointment.clinician} is not available yet.`
+      `Prescription for ${appointment.clinician} is not available.`
     );
-  };
+    return;
+  }
 
-  const handleDownloadPrescription = (
-    appointment: Appointment
-  ) => {
-    /*
-     * PDF generation will be connected
-     * when prescription data is added.
-     */
+  window.alert(
+    `Prescription for ${appointment.clinician}\n\n` +
+      `Medicines:\n${appointment.prescription.medicines
+        .map(
+  (medicine) =>
+    `• ${medicine.name} — ${medicine.dosage} — ${medicine.duration}`
+)
+        .join("\n")}\n\n` +
+      `Instructions:\n${appointment.prescription.instructions}`
+  );
+};
+
+const handleDownloadPrescription = (
+  appointment: Appointment
+) => {
+  if (!appointment.prescription) { 
     window.alert(
-      `Prescription PDF for ${appointment.clinician} is not available yet.`
+      `Prescription for ${appointment.clinician} is not available.`
     );
-  };
+    return;
+  }
+
+  const prescription = appointment.prescription;
+
+  const doc = new jsPDF();
+
+  doc.setFontSize(20);
+  doc.text("Prescription", 20, 20);
+
+  doc.setFontSize(12);
+  doc.text(
+    `Doctor: ${appointment.clinician}`,
+    20,
+    35
+  );
+
+  doc.text(
+    `Specialty: ${appointment.specialty}`,
+    20,
+    45
+  );
+
+  doc.text(
+    `Date: ${formatDateTime(appointment.startsAt)}`,
+    20,
+    55
+  );
+
+  doc.setFontSize(14);
+  doc.text("Medicines", 20, 75);
+
+  doc.setFontSize(12);
+
+  prescription.medicines.forEach(
+  (medicine, index) => {
+    doc.text(
+      `${index + 1}. ${medicine.name} - ${medicine.dosage} - ${medicine.duration}`,
+      25,
+      88 + index * 10
+    );
+  }
+);
+
+  const instructionsY =
+    95 + prescription.medicines.length * 10;
+
+  doc.setFontSize(14);
+  doc.text("Instructions", 20, instructionsY);
+
+  doc.setFontSize(12);
+  doc.text(
+    prescription.instructions,
+    20,
+    instructionsY + 12,
+    {
+      maxWidth: 170,
+    }
+  );
+
+  doc.save(
+    `prescription-${appointment.id}.pdf`
+  );
+};
 
   const handleReviewDoctor = (
-    appointment: Appointment
-  ) => {
-    /*
-     * Review flow will be connected
-     * in the Review Doctor step.
-     */
-    window.alert(
-      `Review Doctor: ${appointment.clinician}`
-    );
-  };
+  appointment: Appointment
+) => {
+  setReviewAppointment(appointment);
 
+  setReviewRating(
+    appointment.review?.rating ?? 0
+  );
+
+  setReviewComment(
+    appointment.review?.comment ?? ""
+  );
+};
+
+const handleSubmitReview = () => {
+  if (!reviewAppointment) {
+    return;
+  }
+
+  if (reviewRating === 0) {
+    window.alert("Please select a rating.");
+    return;
+  }
+
+  const allAppointments = JSON.parse(
+    localStorage.getItem("appointments") || "[]"
+  ) as Appointment[];
+
+  const updatedAppointments = allAppointments.map(
+    (appointment) =>
+      appointment.id === reviewAppointment.id
+        ? {
+            ...appointment,
+            review: {
+              rating: reviewRating,
+              comment: reviewComment.trim(),
+            },
+          }
+        : appointment
+  );
+
+  localStorage.setItem(
+    "appointments",
+    JSON.stringify(updatedAppointments)
+  );
+
+  const storedPatient =
+  localStorage.getItem("loggedInPatient");
+
+if (storedPatient) {
+  const patient = JSON.parse(
+    storedPatient
+  ) as LoggedInPatient;
+
+  setAppointments(
+    updatedAppointments.filter(
+      (appointment) =>
+        appointment.patient.name
+          .trim()
+          .toLowerCase() ===
+        patient.name.trim().toLowerCase()
+    )
+  );
+}
+
+  setReviewAppointment(null);
+  setReviewRating(0);
+  setReviewComment("");
+
+  window.alert("Review submitted successfully.");
+};
  const handleRebookAppointment = (
   appointment: Appointment
 ) => {
@@ -471,7 +609,7 @@ export default function PatientAppointmentsPage() {
   const doctorId =
     appointmentIdParts
       .slice(
-        doctorIndex,
+        doctorIndex ,
         slotIndex
       )
       .join("-");
@@ -764,6 +902,7 @@ export default function PatientAppointmentsPage() {
                               appointment
                             )
                           }
+                          
                           disabled={
                             cancellingId ===
                             appointment.id
@@ -797,9 +936,17 @@ export default function PatientAppointmentsPage() {
                           </p>
                         </div>
 
-                        <span className="w-fit rounded-full bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 ring-1 ring-inset ring-amber-200">
-                          Prescription Not Available
-                        </span>
+                        <span
+  className={`w-fit rounded-full px-3 py-1.5 text-xs font-semibold ring-1 ring-inset ${
+    appointment.prescription
+      ?"bg-emerald-50 text-emerald-700 ring-emerald-200"
+      : "bg-amber-50 text-amber-700 ring-amber-200"
+  }`}
+>
+  {appointment.prescription
+    ? "Prescription Available"
+    : "Prescription Not Available"}
+</span>
 
                       </div>
 
@@ -830,16 +977,36 @@ export default function PatientAppointmentsPage() {
                         </button>
 
                         <button
-                          type="button"
-                          onClick={() =>
-                            handleReviewDoctor(
-                              appointment
-                            )
-                          }
-                          className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100"
-                        >
-                          Review Doctor
-                        </button>
+  type="button"
+  onClick={() =>
+    handleReviewDoctor(
+      appointment
+    )
+  }
+  className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100"
+>
+  {appointment.review
+    ? "Edit Review"
+    : "Review Doctor"}
+</button>
+{appointment.review && (
+  <div className="col-span-full rounded-xl bg-emerald-50 p-4">
+    <p className="text-sm font-semibold text-emerald-800">
+      Your Review
+    </p>
+
+    <p className="mt-1 text-yellow-500">
+      {"★".repeat(appointment.review.rating)}
+      {"☆".repeat(5 - appointment.review.rating)}
+    </p>
+
+    {appointment.review.comment && (
+      <p className="mt-2 text-sm text-slate-600">
+        {appointment.review.comment}
+      </p>
+    )}
+  </div>
+)}
 
                         <button
                           type="button"
@@ -882,6 +1049,100 @@ export default function PatientAppointmentsPage() {
         )}
 
       </div>
+              {reviewAppointment && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+            <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+              <div className="mb-5 flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-bold text-slate-900">
+                    Review Doctor
+                  </h2>
+
+                  <p className="mt-1 text-sm text-slate-500">
+                    {reviewAppointment.clinician}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setReviewAppointment(null);
+                    setReviewRating(0);
+                    setReviewComment("");
+                  }}
+                  className="text-xl text-slate-400 hover:text-slate-700"
+                >
+                  ×
+                </button>
+              </div>
+
+              <div className="mb-5">
+                <p className="mb-2 text-sm font-semibold text-slate-700">
+                  Your Rating
+                </p>
+
+                <div className="flex gap-2">
+                  {[1, 2, 3, 4, 5].map((rating) => (
+                    <button
+                      key={rating}
+                      type="button"
+                      onClick={() => setReviewRating(rating)}
+                      className={`text-3xl ${
+                        rating <= reviewRating
+                          ? "text-yellow-400"
+                          : "text-slate-300"
+                      }`}
+                    >
+                      ★
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mb-5">
+                <label
+                  htmlFor="review-comment"
+                  className="mb-2 block text-sm font-semibold text-slate-700"
+                >
+                  Your Review
+                </label>
+
+                <textarea
+                  id="review-comment"
+                  value={reviewComment}
+                  onChange={(event) =>
+                    setReviewComment(event.target.value)
+                  }
+                  placeholder="Write your experience..."
+                  rows={4}
+                  className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setReviewAppointment(null);
+                    setReviewRating(0);
+                    setReviewComment("");
+                  }}
+                  className="flex-1 rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleSubmitReview}
+                  className="flex-1 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-700"
+                >
+                  Submit Review
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
     </main>
   );
 }

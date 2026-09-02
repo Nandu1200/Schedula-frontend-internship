@@ -5,7 +5,7 @@
   | "completed"
   | "cancelled"
   | "missed";
-
+import type { Prescription } from "@/types/prescription";
 export type Appointment = {
   id: string;
  patient: {
@@ -21,4 +21,9 @@ export type Appointment = {
   status: AppointmentStatus;
   reason: string;
   room: string;
+  prescription?: Prescription;
+review?: {
+  rating: number;
+  comment: string;
+};
 };

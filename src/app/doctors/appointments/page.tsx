@@ -6,6 +6,7 @@ import { addNotification } from "@/lib/utils/notifications";
 
 import type { Appointment } from "@/types/appointment";
 import type { AvailabilitySlot } from "@/types/availability";
+import PrescriptionForm from "./PrescriptionForm";
 
 type LoggedInDoctor = {
   id: string;
@@ -689,14 +690,37 @@ export default function DoctorAppointmentsPage() {
         ) as Appointment[];
 
       const updatedAppointments =
-        allAppointments.map((item) =>
-          item.id === appointment.id
+  allAppointments.map((item) =>
+    item.id === appointment.id
+      ? {
+          ...item,
+          status,
+          ...(status === "completed"
             ? {
-                ...item,
-                status,
+             prescription: {
+  id: `prescription-${Date.now()}`,
+  appointmentId: appointment.id,
+  diagnosis: "General consultation",
+  medicines: [
+    {
+      name: "Paracetamol",
+      dosage: "500mg",
+      duration: "5 days",
+    },
+    {
+      name: "Vitamin D3",
+      dosage: "1 tablet",
+      duration: "30 days",
+    },
+  ],
+  instructions:
+    "Take medicines as prescribed by the doctor.",
+},
               }
-            : item
-        );
+            : {}),
+        }
+      : item
+  );
 
       localStorage.setItem(
         "appointments",
@@ -728,16 +752,16 @@ export default function DoctorAppointmentsPage() {
   });
 }
 
-      setAppointments((current) =>
-        current.map((item) =>
-          item.id === appointment.id
-            ? {
-                ...item,
-                status,
-              }
-            : item
-        )
-      );
+     setAppointments((current) =>
+  current.map((item) =>
+    item.id === appointment.id
+      ? updatedAppointments.find(
+          (updatedItem) =>
+            updatedItem.id === appointment.id
+        ) ?? item
+      : item
+  )
+);
 
       setSelectedAppointment((current) =>
         current?.id === appointment.id
@@ -1697,25 +1721,60 @@ export default function DoctorAppointmentsPage() {
                 )}
 
               {/* Read only */}
-              {(selectedAppointment.status ===
-                "completed" ||
-                selectedAppointment.status ===
-                  "cancelled" ||
-                selectedAppointment.status ===
-                  "missed") && (
-                <p className="mr-auto self-center text-sm text-slate-500">
-                  This appointment is read-only.
-                </p>
-              )}
+         {selectedAppointment.status === "completed" && (
+  <div className="mr-auto rounded-lg bg-blue-50 px-4 py-3">
+    <p className="text-sm font-semibold text-blue-700">
+      Appointment Completed
+    </p>
 
-              <button
-                type="button"
-                onClick={closeDetails}
-                className="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-              >
-                Close
-              </button>
+    {selectedAppointment.prescription ? (
+  <p className="mt-1 text-sm text-blue-600">
+    Prescription is available for the patient.
+  </p>
+) : (
+  <p className="mt-1 text-sm text-blue-600">
+    Prescription is not available.
+  </p>
+)}
+  </div>
+)}
 
+{(selectedAppointment.status === "cancelled" ||
+  selectedAppointment.status === "missed") && (
+  <p className="mr-auto self-center text-sm text-slate-500">
+    This appointment is read-only.
+  </p>
+)}
+<div className="w-full border-t border-gray-100 pt-4">
+{selectedAppointment.status === "completed" && (
+  <PrescriptionForm
+    appointmentId={selectedAppointment.id}
+    prescription={selectedAppointment.prescription}
+    onSaved={(updatedAppointment) => {
+      setSelectedAppointment(updatedAppointment);
+
+      setAppointments((currentAppointments) =>
+  currentAppointments.map((appointment) =>
+    appointment.id === updatedAppointment.id
+      ? updatedAppointment
+      : appointment
+  )
+);
+    }}
+  />
+)}
+
+<div className="mt-4 flex justify-end">
+
+<button
+  type="button"
+  onClick={closeDetails}
+  className="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+>
+  Close
+</button>
+</div>
+</div>
             </div>
 
           </div>
@@ -1748,7 +1807,7 @@ export default function DoctorAppointmentsPage() {
 
               <div>
                 <p className="text-sm font-semibold uppercase tracking-wide text-emerald-600">
-                  Reschedule Appointment
+                  Reschedule Apointment
                 </p>
 
                 <h2

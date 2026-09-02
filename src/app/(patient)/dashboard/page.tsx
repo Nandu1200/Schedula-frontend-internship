@@ -861,7 +861,7 @@ export default function PatientDashboardPage() {
             Quick Actions
           </h2>
 
-          <div className="mt-4 grid gap-4 sm:grid-cols-3">
+         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
 
             <Link
               href="/doctors"
@@ -921,6 +921,22 @@ export default function PatientDashboardPage() {
                 missed appointments.
               </p>
 
+            </Link>
+                        <Link
+              href="/profile"
+              className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+            >
+              <div className="text-2xl">
+                👤
+              </div>
+
+              <h3 className="mt-3 font-bold text-slate-900">
+                My Profile
+              </h3>
+
+              <p className="mt-1 text-sm text-slate-500">
+                View and manage your personal information.
+              </p>
             </Link>
 
           </div>
