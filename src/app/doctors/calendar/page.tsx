@@ -2,6 +2,7 @@
 
 import {
   DragEvent,
+   useEffect,
   useState,
   useSyncExternalStore,
 } from "react";
@@ -217,6 +218,44 @@ export default function DoctorCalendarPage() {
   const [selectedDate, setSelectedDate] = useState(
     new Date(),
   );
+  const [currentTime] = useState(
+  () => Date.now(),
+);
+
+  const [selectedTime, setSelectedTime] = useState<string | null>(
+  null,
+);
+  
+useEffect(() => {
+  const timer = window.setTimeout(() => {
+    const params = new URLSearchParams(
+      window.location.search,
+    );
+
+    const dateParam = params.get("date");
+    const timeParam = params.get("time");
+
+    if (!dateParam) {
+      return;
+    }
+
+    const appointmentDate = new Date(
+      `${dateParam}T00:00:00`,
+    );
+
+    if (Number.isNaN(appointmentDate.getTime())) {
+      return;
+    }
+
+    setSelectedDate(appointmentDate);
+    setSelectedTime(timeParam);
+    setView("day");
+  }, 0);
+
+  return () => {
+    window.clearTimeout(timer);
+  };
+}, []);
 
   const [draggedAppointmentId, setDraggedAppointmentId] =
     useState<string | null>(null);
@@ -513,26 +552,40 @@ export default function DoctorCalendarPage() {
       );
     }
   }
+const upcomingAppointments = appointments
+  .filter(
+    (appointment) =>
+      new Date(appointment.startsAt).getTime() >
+        currentTime &&
+      appointment.status !== "cancelled" &&
+      appointment.status !== "missed" &&
+      appointment.status !== "completed"
+  )
+  .sort(
+    (first, second) =>
+      new Date(first.startsAt).getTime() -
+      new Date(second.startsAt).getTime()
+  );
 
   const weekDates = getWeekDates(selectedDate);
   const monthDates = getMonthDates(selectedDate);
 
   return (
-    <main className="min-h-screen bg-slate-50 p-4 sm:p-6">
+    <main className="min-h-screen bg-[#f7faf9] p-4 sm:p-6">
       <div className="mx-auto max-w-7xl">
         {/* Header */}
-        <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow duration-200 hover:shadow-md sm:p-6">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">
               Calendar
             </h1>
 
-            <p className="mt-2 text-sm text-slate-600">
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
               Manage your appointments and availability.
             </p>
 
             {doctor && (
-              <p className="mt-1 text-xs text-slate-500">
+              <p className="mt-1 text-xs font-medium text-slate-500">
                 {doctor.name}
               </p>
             )}
@@ -544,7 +597,7 @@ export default function DoctorCalendarPage() {
               <button
                 type="button"
                 onClick={goPrevious}
-                className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition-all duration-200 hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
               >
                 ←
               </button>
@@ -552,7 +605,7 @@ export default function DoctorCalendarPage() {
               <button
                 type="button"
                 onClick={goToday}
-                className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition-all duration-200 hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
               >
                 Today
               </button>
@@ -560,7 +613,7 @@ export default function DoctorCalendarPage() {
               <button
                 type="button"
                 onClick={goNext}
-                className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition-all duration-200 hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
               >
                 →
               </button>
@@ -587,7 +640,7 @@ export default function DoctorCalendarPage() {
               </div>
             </div>
 
-            <div className="flex w-fit rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
+            <div className="flex w-fit rounded-xl border border-slate-200 bg-slate-50 p-1 shadow-sm">
               {(
                 ["day", "week", "month"] as CalendarView[]
               ).map((calendarView) => (
@@ -597,7 +650,7 @@ export default function DoctorCalendarPage() {
                   onClick={() =>
                     setView(calendarView)
                   }
-                  className={`rounded-md px-4 py-2 text-sm font-medium capitalize transition ${
+                  className={`rounded-md px-4 py-2 text-sm font-semibold capitalize transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 ${
                     view === calendarView
                       ? "bg-emerald-600 text-white"
                       : "text-slate-600 hover:bg-slate-100"
@@ -612,36 +665,94 @@ export default function DoctorCalendarPage() {
 
         {/* Reschedule Message */}
         {message && (
-          <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700 shadow-sm transition-colors duration-200">
             {message}
           </div>
         )}
 
         {/* Summary */}
-        <div className="mt-6 grid gap-4 sm:grid-cols-2">
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-md">
             <p className="text-sm text-slate-500">
               Appointments
             </p>
 
-            <p className="mt-1 text-2xl font-bold text-slate-900">
+            <p className="mt-1 text-3xl font-bold text-slate-900">
               {appointments.length}
             </p>
           </div>
 
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-md">
+  <div className="flex items-center justify-between gap-3">
+  <p className="text-sm font-semibold text-emerald-800">
+    Upcoming Appointments
+  </p>
+
+  <span className="rounded-full bg-emerald-600 px-2.5 py-1 text-xs font-bold text-white">
+    {upcomingAppointments.length}
+  </span>
+</div>
+
+  {upcomingAppointments.length === 0 ? (
+    <p className="mt-3 text-sm text-slate-500">
+      No upcoming appointments.
+    </p>
+  ) : (
+   <div className="mt-3 max-h-56 space-y-3 overflow-y-auto pr-1">
+      {upcomingAppointments.map((appointment) => (
+       <div
+  key={appointment.id}
+  onClick={() => {
+    setSelectedDate(new Date(appointment.startsAt));
+    setSelectedTime(
+      new Date(appointment.startsAt)
+        .toTimeString()
+        .slice(0, 5)
+    );
+    setView("day");
+  }}
+  className="cursor-pointer rounded-xl border border-emerald-100 bg-white/60 p-4 transition hover:border-emerald-300 hover:bg-white/80"
+>
+          <p className="text-sm font-semibold text-slate-900">
+            {appointment.patient.name}
+          </p>
+
+          <p className="mt-1 text-xs text-slate-500">
+            {formatDisplayDate(
+              new Date(appointment.startsAt)
+            )}{" "}
+            ·{" "}
+            {formatAppointmentTime(
+              appointment.startsAt
+            )}
+          </p>
+
+          <p className="mt-1 text-xs font-medium capitalize text-emerald-700">
+            {appointment.status}
+          </p>
+
+          <p className="mt-2 text-xs text-slate-500">
+  {appointment.reason} · {appointment.durationMinutes} min
+</p>
+        </div>
+      ))}
+    </div>
+  )}
+</div>
+
+          <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-md">
             <p className="text-sm text-slate-500">
               Availability Slots
             </p>
 
-            <p className="mt-1 text-2xl font-bold text-slate-900">
+            <p className="mt-1 text-3xl font-bold text-slate-900">
               {availability.length}
             </p>
           </div>
         </div>
 
         {/* Calendar */}
-        <section className="mt-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <section className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md">
           {/* Month View */}
           {view === "month" && (
             <div>
@@ -687,7 +798,7 @@ export default function DoctorCalendarPage() {
                   return (
                     <div
                       key={dateKey}
-                      className={`min-h-[150px] border-b border-r border-slate-200 p-2 align-top ${
+                      className={`min-h-[150px] border-b border-r border-slate-200 p-2 align-top transition-colors duration-200 ${
                         !isCurrentMonth
                           ? "bg-slate-50/60"
                           : "bg-white"
@@ -699,7 +810,7 @@ export default function DoctorCalendarPage() {
                           setSelectedDate(date);
                           setView("day");
                         }}
-                        className={`mb-2 flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold ${
+                        className={`mb-2 flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold transition-all duration-200 ${
                           isToday
                             ? "bg-emerald-600 text-white"
                             : isCurrentMonth
@@ -727,7 +838,7 @@ export default function DoctorCalendarPage() {
                               onDragEnd={
                                 handleDragEnd
                               }
-                              className={`rounded-md border p-2 text-[11px] ${
+                              className={`rounded-lg border p-2 text-[11px] transition-all duration-200 hover:shadow-sm ${
                                 canDragAppointment(
                                   appointment,
                                 )
@@ -778,7 +889,7 @@ export default function DoctorCalendarPage() {
                                   slot,
                                 )
                               }
-                              className={`rounded-md border p-2 text-[11px] ${
+                              className={`rounded-lg border p-2 text-[11px] transition-all duration-200 hover:shadow-sm ${
                                 slot.status ===
                                 "available"
                                   ? "border-emerald-200 bg-emerald-50 text-emerald-700"
@@ -885,7 +996,7 @@ export default function DoctorCalendarPage() {
                                 onDragEnd={
                                   handleDragEnd
                                 }
-                                className={`rounded-lg border p-2 ${
+                                className={`rounded-lg border p-2 transition-all duration-200 hover:shadow-sm ${
                                   canDragAppointment(
                                     appointment,
                                   )
@@ -936,7 +1047,7 @@ export default function DoctorCalendarPage() {
                                     slot,
                                   )
                                 }
-                                className={`rounded-lg border p-2 ${
+                                className={`rounded-lg border p-2 transition-all duration-200 hover:shadow-sm ${
                                   slot.status ===
                                   "available"
                                     ? "border-emerald-200 bg-emerald-50"
@@ -991,7 +1102,7 @@ export default function DoctorCalendarPage() {
           {/* Day View */}
           {view === "day" && (
             <div>
-              <div className="border-b border-slate-200 bg-slate-50 p-4">
+              <div className="border-b border-slate-200 bg-slate-50/70 p-4">
                 <p className="text-sm font-semibold text-slate-900">
                   {formatDisplayDate(selectedDate)}
                 </p>
@@ -1013,7 +1124,7 @@ export default function DoctorCalendarPage() {
                       )
                     }
                     onDragEnd={handleDragEnd}
-                    className={`flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between ${
+                    className={`flex flex-col gap-3 border-b border-slate-100 p-5 transition-colors duration-200 hover:bg-slate-50 sm:flex-row sm:items-center sm:justify-between ${
                       canDragAppointment(
                         appointment,
                       )
@@ -1024,7 +1135,14 @@ export default function DoctorCalendarPage() {
                       appointment.id
                         ? "opacity-50"
                         : ""
-                    }`}
+                    }${
+  selectedTime ===
+  new Date(appointment.startsAt)
+    .toTimeString()
+    .slice(0, 5)
+    ? "bg-emerald-50"
+    : ""
+}`}
                   >
                     <div>
                       <p className="text-sm font-semibold text-slate-900">
@@ -1042,7 +1160,7 @@ export default function DoctorCalendarPage() {
                       </p>
                     </div>
 
-                    <span className="w-fit rounded-full bg-blue-50 px-3 py-1 text-xs font-medium capitalize text-blue-700">
+                    <span className="w-fit rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold capitalize text-blue-700 transition-colors duration-200">
                       {appointment.status}
                     </span>
                   </div>
@@ -1059,7 +1177,7 @@ export default function DoctorCalendarPage() {
                     onDrop={(event) =>
                       handleDrop(event, slot)
                     }
-                    className={`p-5 ${
+                    className={`border-b border-slate-100 p-5 transition-colors duration-200 hover:bg-slate-50 ${
                       slot.status === "available"
                         ? "bg-emerald-50/40"
                         : ""
@@ -1078,7 +1196,7 @@ export default function DoctorCalendarPage() {
                       </div>
 
                       <span
-                        className={`w-fit rounded-full px-3 py-1 text-xs font-medium capitalize ${
+                        className={`w-fit rounded-full border px-3 py-1 text-xs font-semibold capitalize transition-colors duration-200 ${
                           slot.status === "available"
                             ? "bg-emerald-50 text-emerald-700"
                             : "bg-slate-100 text-slate-700"
@@ -1103,7 +1221,7 @@ export default function DoctorCalendarPage() {
                   getAvailabilityForDate(
                     selectedDate,
                   ).length === 0 && (
-                    <div className="p-10 text-center">
+                    <div className="rounded-xl bg-slate-50 p-10 text-center transition-colors duration-200">
                       <p className="text-sm text-slate-500">
                         No appointments or availability
                         for this day.
@@ -1116,19 +1234,19 @@ export default function DoctorCalendarPage() {
         </section>
 
         {/* Legend */}
-        <div className="mt-4 flex flex-wrap items-center gap-4 text-xs text-slate-600">
-          <div className="flex items-center gap-2">
-            <span className="h-3 w-3 rounded bg-blue-100" />
+        <div className="mt-4 flex flex-wrap items-center gap-4 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-600 shadow-sm">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="h-3 w-3 rounded-full bg-blue-100 ring-1 ring-blue-200" />
             Draggable appointment
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="h-3 w-3 rounded bg-emerald-100" />
+            <span className="h-3 w-3 rounded-full bg-emerald-100 ring-1 ring-emerald-200" />
             Available drop slot
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="h-3 w-3 rounded bg-slate-100" />
+            <span className="h-3 w-3 rounded-full bg-slate-100 ring-1 ring-slate-200" />
             Read-only / booked
           </div>
         </div>

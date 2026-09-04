@@ -5,6 +5,13 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Appointment } from "@/types/appointment";
 
+import {
+  getNotifications,
+  markAllNotificationsAsRead,
+  markNotificationAsRead,
+  type Notification,
+} from "@/lib/utils/notifications";
+
 type LoggedInDoctor = {
   id: string;
   name: string;
@@ -58,6 +65,12 @@ export default function DoctorDashboardPage() {
 
   const [appointments, setAppointments] =
     useState<Appointment[]>([]);
+
+    const [notifications, setNotifications] =
+  useState<Notification[]>([]);
+
+const [notificationOpen, setNotificationOpen] =
+  useState(false);
 
   const [doctorLoading, setDoctorLoading] =
     useState(true);
@@ -161,6 +174,42 @@ export default function DoctorDashboardPage() {
     };
   }, []);
 
+    // Load doctor notifications
+  useEffect(() => {
+    const loadNotifications = () => {
+      setNotifications(getNotifications());
+    };
+
+    const timer = window.setTimeout(
+      loadNotifications,
+      0
+    );
+
+    window.addEventListener(
+      "notifications-updated",
+      loadNotifications
+    );
+
+    window.addEventListener(
+      "storage",
+      loadNotifications
+    );
+
+    return () => {
+      window.clearTimeout(timer);
+
+      window.removeEventListener(
+        "notifications-updated",
+        loadNotifications
+      );
+
+      window.removeEventListener(
+        "storage",
+        loadNotifications
+      );
+    };
+  }, []);
+
   // Close details modal with Escape key
   useEffect(() => {
     if (!selectedAppointment) {
@@ -210,6 +259,70 @@ export default function DoctorDashboardPage() {
     );
   }, [appointments, doctor]);
 
+    const doctorNotifications = useMemo(() => {
+    if (!doctor) {
+      return [];
+    }
+
+    return notifications
+      .filter(
+        (notification) =>
+          notification.userId === doctor.id
+      )
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() -
+          new Date(a.createdAt).getTime()
+      );
+  }, [notifications, doctor]);
+
+  const unreadNotificationCount = useMemo(() => {
+    return doctorNotifications.filter(
+      (notification) => !notification.read
+    ).length;
+  }, [doctorNotifications]);
+
+    const handleNotificationClick = (
+    notification: Notification
+  ) => {
+    if (!notification.read) {
+      markNotificationAsRead(notification.id);
+    }
+  };
+
+  const handleMarkAllAsRead = () => {
+    if (!doctor) {
+      return;
+    }
+
+    markAllNotificationsAsRead(doctor.id);
+  };
+
+  const getNotificationIcon = (
+    type: Notification["type"]
+  ) => {
+    switch (type) {
+      case "booking":
+        return "📅";
+      case "confirmation":
+        return "✅";
+      case "reschedule":
+        return "🔄";
+      case "cancellation":
+        return "❌";
+      case "reminder":
+        return "⏰";
+      case "missed":
+        return "⚠️";
+      case "completed":
+        return "🎉";
+      case "prescription":
+        return "📄";
+      default:
+        return "🔔";
+    }
+  };
+
   // Upcoming appointments
   //
   // Dashboard should show only future appointments.
@@ -248,6 +361,38 @@ export default function DoctorDashboardPage() {
     doctorAppointments,
     currentTime,
   ]);
+
+  const handleSelectAppointment = (
+    appointment: Appointment
+  ) => {
+    setSelectedAppointment(appointment);
+  };
+
+  const handleCloseAppointmentModal = () => {
+    setSelectedAppointment(null);
+  };
+
+  const handleAppointmentCalendarClick = (
+  appointment: Appointment
+) => {
+  const date = new Date(
+    appointment.startsAt
+  );
+
+  const dateParam = date
+    .toISOString()
+    .slice(0, 10);
+
+  const timeParam = date
+    .toTimeString()
+    .slice(0, 5);
+
+  router.push(
+    `/doctors/calendar?date=${dateParam}&time=${encodeURIComponent(
+      timeParam
+    )}`
+  );
+};
 
   const confirmedCount =
     doctorAppointments.filter(
@@ -309,7 +454,7 @@ export default function DoctorDashboardPage() {
                 (item) => (
                   <div
                     key={item}
-                    className="h-32 animate-pulse rounded-2xl bg-white"
+                    className="h-32 animate-pulse rounded-2xl border border-slate-200 bg-white shadow-sm"
                   />
                 )
               )}
@@ -405,18 +550,6 @@ export default function DoctorDashboardPage() {
                 Appointments
               </Link>
 
-              {/* Calendar */}
-              <Link
-                href="/doctors/calendar"
-                className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-emerald-50 transition hover:bg-white/10"
-              >
-                <span className="text-lg">
-                  🗓
-                </span>
-
-                Calendar
-              </Link>
-
               {/* Profile */}
               <Link
                 href="/doctors/profile"
@@ -428,16 +561,26 @@ export default function DoctorDashboardPage() {
 
                 My Profile
               </Link>
+{/* Prescriptions */}
+<Link
+  href="/doctors/prescriptions"
+  className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-emerald-50 transition hover:bg-white/10"
+>
+  <span className="text-lg">
+    ▤
+  </span>
 
+  Prescriptions
+</Link>
             </div>
           </nav>
 
           {/* Doctor Info */}
           <div className="border-t border-emerald-600 p-4">
 
-            <div className="flex items-center gap-3 rounded-xl bg-emerald-800/40 p-3">
+            <div className="flex items-center gap-3 rounded-xl bg-emerald-800/40 p-3 transition-all duration-200 hover:bg-emerald-800/60">
 
-              <div className="grid size-10 shrink-0 place-items-center rounded-full bg-emerald-100 text-sm font-bold text-emerald-700">
+              <div className="grid size-10 shrink-0 place-items-center rounded-full bg-emerald-100 text-sm font-bold text-emerald-700 ring-2 ring-emerald-200 transition-transform duration-200 hover:scale-105">
                 {doctorInitials}
               </div>
 
@@ -458,7 +601,7 @@ export default function DoctorDashboardPage() {
             <button
               type="button"
               onClick={handleSignOut}
-              className="mt-3 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-emerald-100 transition hover:bg-white/10"
+              className="mt-3 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-emerald-100 transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/10"
             >
               <span>
                 ↪
@@ -481,9 +624,9 @@ export default function DoctorDashboardPage() {
               {/* Mobile Logo */}
               <Link
                 href="/doctors/dashboard"
-                className="flex items-center gap-3 lg:hidden"
+                className="group flex items-center gap-3 lg:hidden"
               >
-                <div className="grid size-10 place-items-center rounded-xl bg-emerald-600 text-lg font-bold text-white">
+                <div className="grid size-10 place-items-center rounded-xl bg-emerald-600 text-lg font-bold text-white transition-transform duration-200 group-hover:scale-105">
                   S
                 </div>
 
@@ -500,36 +643,164 @@ export default function DoctorDashboardPage() {
 
               {/* Desktop title */}
               <div className="hidden lg:block">
-                <p className="text-lg font-bold">
+                  <p className="text-lg font-bold tracking-tight">
                   Dashboard
                 </p>
               </div>
 
               {/* Doctor */}
-              <div className="flex items-center gap-3">
+             <div className="flex items-center gap-3">
 
-                <div className="hidden text-right sm:block">
-                  <p className="text-sm font-semibold">
-                    {doctor.name}
-                  </p>
+  {/* Notification Bell */}
+  <div className="relative">
+    <button
+      type="button"
+      onClick={() =>
+        setNotificationOpen(
+          (open) => !open
+        )
+      }
+      aria-label="Open notifications"
+      className="relative grid size-11 place-items-center rounded-xl border border-slate-200 bg-white text-xl shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-emerald-200 hover:bg-emerald-50/50 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+    >
+      🔔
 
-                  <p className="text-xs text-slate-500">
-                    {doctor.specialty}
-                  </p>
-                </div>
+      {unreadNotificationCount > 0 && (
+        <span className="absolute -right-1 -top-1 grid min-w-5 place-items-center rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white shadow-sm ring-2 ring-white transition-transform duration-200 hover:scale-110">
+          {unreadNotificationCount > 9
+            ? "9+"
+            : unreadNotificationCount}
+        </span>
+      )}
+    </button>
 
-                <div className="grid size-10 place-items-center rounded-full bg-emerald-100 text-sm font-bold text-emerald-700">
-                  {doctorInitials}
-                </div>
+    {notificationOpen && (
+      <div className="absolute right-0 top-14 z-50 w-[calc(100vw-2rem)] max-w-sm overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl transition-all duration-200 sm:right-0">
+        <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-4 py-3">
+          <div>
+            <h2 className="font-bold tracking-tight text-slate-900">
+              Notifications
+            </h2>
 
+            <p className="text-xs font-medium text-slate-500">
+              {unreadNotificationCount} unread
+            </p>
+          </div>
+
+          {unreadNotificationCount > 0 && (
+            <button
+              type="button"
+              onClick={handleMarkAllAsRead}
+              className="rounded-lg px-2 py-1 text-xs font-semibold text-emerald-600 transition-all duration-200 hover:bg-emerald-50 hover:text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+            >
+              Mark all as read
+            </button>
+          )}
+        </div>
+
+        <div className="max-h-[420px] overflow-y-auto">
+          {doctorNotifications.length === 0 ? (
+            <div className="px-5 py-10 text-center transition-colors duration-200 hover:bg-slate-50/50">
+              <div className="text-3xl transition-transform duration-200 hover:scale-110">
+               🔔
               </div>
+
+              <p className="mt-3 text-sm font-semibold text-slate-700">
+                No notifications
+              </p>
+
+              <p className="mt-1 text-xs text-slate-500">
+                You&apos;re all caught up.
+              </p>
+            </div>
+          ) : (
+            doctorNotifications.map(
+              (notification) => (
+                <button
+                  key={notification.id}
+                  type="button"
+                  onClick={() =>
+                    handleNotificationClick(
+                      notification
+                    )
+                  }
+                  className={`w-full border-b border-slate-100 px-4 py-4 text-left transition-all duration-200 hover:bg-slate-50 hover:pl-5 sm:px-5 ${
+                    notification.read
+                      ? "bg-white"
+                      : "bg-emerald-50/50"
+                  }`}
+                >
+                  <div className="flex gap-3">
+                    <div className="grid size-9 shrink-0 place-items-center rounded-full bg-white shadow-sm ring-1 ring-slate-100 transition-all duration-200 hover:scale-105 hover:ring-emerald-200">
+                      {getNotificationIcon(
+                        notification.type
+                      )}
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <p
+                          className={`text-sm ${
+                            notification.read
+                              ? "font-medium text-slate-700"
+                              : "font-bold text-slate-900"
+                          }`}
+                        >
+                          {notification.title}
+                        </p>
+
+                        {!notification.read && (
+                          <span className="mt-1 size-2 shrink-0 rounded-full bg-emerald-500" />
+                        )}
+                      </div>
+
+                      <p className="mt-1 text-xs leading-5 text-slate-600">
+                        {notification.message}
+                      </p>
+
+                      <p className="mt-2 text-[11px] font-medium text-slate-400">
+                        {new Date(
+                          notification.createdAt
+                        ).toLocaleString("en-IN", {
+                          day: "numeric",
+                          month: "short",
+                          hour: "numeric",
+                          minute: "2-digit",
+                        })}
+                      </p>
+                    </div>
+                  </div>
+                </button>
+              )
+            )
+          )}
+        </div>
+      </div>
+    )}
+  </div>
+
+  <div className="hidden text-right sm:block transition-opacity duration-200">
+    <p className="text-sm font-semibold tracking-tight">
+      {doctor.name}
+    </p>
+
+    <p className="text-xs text-slate-500">
+      {doctor.specialty}
+    </p>
+  </div>
+
+  <div className="grid size-10 place-items-center rounded-full bg-emerald-100 text-sm font-bold text-emerald-700">
+    {doctorInitials}
+  </div>
+
+</div>
 
             </div>
 
           </header>
 
           {/* Dashboard Body */}
-          <div className="px-5 py-7 sm:px-8 lg:px-10 lg:py-9">
+          <div className="px-5 py-7 sm:px-8 lg:px-10 lg:py-9 2xl:px-12">
 
             {/* Welcome */}
             <section>
@@ -542,17 +813,17 @@ export default function DoctorDashboardPage() {
                 Good day, {doctor.name}
               </h1>
 
-              <p className="mt-2 text-slate-500">
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500 sm:text-base">
                 Here&apos;s an overview of your appointments and practice.
               </p>
 
             </section>
 
             {/* Stats */}
-            <section className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+            <section className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-4 2xl:gap-6">
 
               {/* Upcoming */}
-              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="group rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-emerald-200 hover:shadow-md">
 
                 <p className="text-sm font-medium text-slate-500">
                   Upcoming Appointments
@@ -569,7 +840,7 @@ export default function DoctorDashboardPage() {
               </div>
 
               {/* Confirmed */}
-              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="group rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-emerald-200 hover:shadow-md">
 
                 <p className="text-sm font-medium text-slate-500">
                   Confirmed
@@ -586,7 +857,7 @@ export default function DoctorDashboardPage() {
               </div>
 
               {/* Pending */}
-              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="group rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-emerald-200 hover:shadow-md">
 
                 <p className="text-sm font-medium text-slate-500">
                   Pending
@@ -603,7 +874,7 @@ export default function DoctorDashboardPage() {
               </div>
 
               {/* Cancelled */}
-              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="group rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-emerald-200 hover:shadow-md">
 
                 <p className="text-sm font-medium text-slate-500">
                   Cancelled
@@ -626,7 +897,7 @@ export default function DoctorDashboardPage() {
 
               <div className="mb-4">
 
-                <h2 className="text-lg font-bold">
+                <h2 className="text-lg font-bold tracking-tight text-slate-900">
                   Quick Navigation
                 </h2>
 
@@ -636,12 +907,12 @@ export default function DoctorDashboardPage() {
 
               </div>
 
-              <div className="grid gap-4 md:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-2">
 
                 {/* Profile */}
                 <Link
                   href="/doctors/profile"
-                  className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-emerald-300 hover:shadow-md"
+                  className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-emerald-200 hover:shadow-md"
                 >
                   <div className="flex items-center justify-between">
 
@@ -667,7 +938,7 @@ export default function DoctorDashboardPage() {
                 {/* Appointments */}
                 <Link
                   href="/doctors/appointments"
-                  className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-emerald-300 hover:shadow-md"
+                  className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-emerald-200 hover:shadow-md"
                 >
                   <div className="flex items-center justify-between">
 
@@ -690,47 +961,21 @@ export default function DoctorDashboardPage() {
                   </div>
                 </Link>
 
-                {/* Calendar */}
-                <Link
-                  href="/doctors/calendar"
-                  className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-emerald-300 hover:shadow-md"
-                >
-                  <div className="flex items-center justify-between">
-
-                    <div>
-
-                      <p className="font-bold">
-                        Calendar
-                      </p>
-
-                      <p className="mt-1 text-sm text-slate-500">
-                        View availability and manage appointment schedules.
-                      </p>
-
-                    </div>
-
-                    <span className="text-xl text-emerald-600 transition group-hover:translate-x-1">
-                      →
-                    </span>
-
-                  </div>
-                </Link>
-
               </div>
 
             </section>
 
             {/* Upcoming Appointments */}
-            <section className="mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <section className="mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md">
 
               {/* Header */}
-              <div className="border-b border-slate-200 px-6 py-5">
+              <div className="border-b border-slate-200 bg-slate-50/50 px-6 py-5">
 
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 
                   <div>
 
-                    <h2 className="text-lg font-bold">
+                    <h2 className="text-lg font-bold tracking-tight text-slate-900">
                       Upcoming Appointments
                     </h2>
 
@@ -742,7 +987,7 @@ export default function DoctorDashboardPage() {
 
                   <Link
                     href="/doctors/appointments"
-                    className="text-sm font-semibold text-emerald-700 hover:text-emerald-800"
+                    className="rounded-lg px-2 py-1 text-sm font-semibold text-emerald-700 transition-all duration-200 hover:-translate-y-0.5 hover:bg-emerald-50 hover:text-emerald-800 hover:shadow-sm"
                   >
                     View all →
                   </Link>
@@ -759,7 +1004,7 @@ export default function DoctorDashboardPage() {
                     (item) => (
                       <div
                         key={item}
-                        className="h-24 animate-pulse rounded-xl bg-slate-100"
+                        className="h-24 animate-pulse rounded-xl border border-slate-200 bg-slate-100"
                       />
                     )
                   )}
@@ -773,21 +1018,21 @@ export default function DoctorDashboardPage() {
                   0 && (
                   <div className="px-6 py-14 text-center">
 
-                    <div className="mx-auto grid size-14 place-items-center rounded-full bg-emerald-50 text-xl text-emerald-600">
+                    <div className="mx-auto grid size-14 place-items-center rounded-full bg-emerald-50 text-xl text-emerald-600 ring-4 ring-emerald-50/60 transition-transform duration-200 hover:scale-105">
                       ✓
                     </div>
 
-                    <p className="mt-4 font-semibold">
+                    <p className="mt-4 font-semibold tracking-tight text-slate-900">
                       No upcoming appointments
                     </p>
 
-                    <p className="mt-1 text-sm text-slate-500">
+                    <p className="mt-1 max-w-md mx-auto text-sm leading-6 text-slate-500">
                       Your upcoming patient appointments will appear here.
                     </p>
 
                     <Link
                       href="/doctors/profile"
-                      className="mt-5 inline-flex rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700"
+                      className="mt-5 inline-flex rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-emerald-700 hover:shadow-md"
                     >
                       Manage Availability
                     </Link>
@@ -799,26 +1044,31 @@ export default function DoctorDashboardPage() {
               {!appointmentsLoading &&
                 upcomingAppointments.length >
                   0 && (
-                  <div className="divide-y divide-slate-100">
+                  <div className="divide-y divide-slate-100 bg-white">
 
                     {upcomingAppointments
                       .slice(0, 5)
                       .map((appointment) => (
                         <div
-                          key={appointment.id}
-                          className="px-6 py-5"
-                        >
+  key={appointment.id}
+  onClick={() =>
+    handleAppointmentCalendarClick(
+      appointment
+    )
+  }
+  className="group cursor-pointer px-6 py-5 transition-colors duration-200 hover:bg-slate-50"
+>
 
                           <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
 
                             {/* Patient */}
                             <div className="flex items-center gap-4">
 
-                              <div className="grid size-12 shrink-0 place-items-center rounded-full bg-emerald-100 text-sm font-bold text-emerald-700">
+                              <div className="grid size-12 shrink-0 place-items-center rounded-full bg-emerald-100 text-sm font-bold text-emerald-700 ring-4 ring-emerald-50 transition-transform duration-200 group-hover:scale-105">
                                 {appointment.patient.initials}
                               </div>
 
-                              <div className="min-w-0">
+                              <div className="min-w-0 flex-1">
 
                                 <p className="font-semibold">
                                   {appointment.patient.name}
@@ -850,7 +1100,7 @@ export default function DoctorDashboardPage() {
                               {/* Date and Status */}
                               <div className="flex flex-wrap items-center gap-3">
 
-                                <div className="text-sm xl:text-right">
+                                <div className="text-sm xl:min-w-44 xl:text-right">
 
                                   <p className="font-semibold">
                                     {formatDate(
@@ -870,7 +1120,7 @@ export default function DoctorDashboardPage() {
                                 </div>
 
                                 <span
-                                  className={`rounded-full px-3 py-1.5 text-xs font-semibold capitalize ring-1 ring-inset ${
+                                  className={`rounded-full px-3 py-1.5 text-xs font-semibold capitalize ring-1 ring-inset transition-transform duration-200 hover:scale-105 ${
                                     statusStyles[
                                       appointment.status
                                     ]
@@ -888,12 +1138,12 @@ export default function DoctorDashboardPage() {
                                 <button
                                   type="button"
                                   onClick={() =>
-                                    setSelectedAppointment(
+                                    handleSelectAppointment(
                                       appointment
                                     )
                                   }
                                   title="Patient Details"
-                                  className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700"
+                                  className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition-all duration-200 hover:-translate-y-0.5 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
                                 >
                                   <span className="text-base">
                                     👤
@@ -904,30 +1154,15 @@ export default function DoctorDashboardPage() {
                                   </span>
                                 </button>
 
-                                {/* Calendar */}
-                                <Link
-                                  href="/doctors/calendar"
-                                  title="Open Calendar"
-                                  className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700"
-                                >
-                                  <span className="text-base">
-                                    🗓
-                                  </span>
-
-                                  <span className="hidden sm:inline">
-                                    Calendar
-                                  </span>
-                                </Link>
-
                                 {/* View Details */}
                                 <button
                                   type="button"
                                   onClick={() =>
-                                    setSelectedAppointment(
+                                    handleSelectAppointment(
                                       appointment
                                     )
                                   }
-                                  className="inline-flex items-center rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-emerald-700"
+                                  className="inline-flex items-center rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-emerald-700 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
                                 >
                                   View Details
                                 </button>
@@ -953,20 +1188,20 @@ export default function DoctorDashboardPage() {
       {/* Appointment Details Modal */}
       {selectedAppointment && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 px-4 py-6"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 px-4 py-6 backdrop-blur-sm"
           onMouseDown={(event) => {
             if (
               event.target ===
               event.currentTarget
             ) {
-              setSelectedAppointment(null);
+              handleCloseAppointmentModal();
             }
           }}
         >
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl">
 
             {/* Modal Header */}
-            <div className="flex items-start justify-between border-b border-slate-200 px-6 py-5">
+            <div className="flex items-start justify-between border-b border-slate-200 bg-slate-50/50 px-6 py-5">
 
               <div>
 
@@ -982,10 +1217,8 @@ export default function DoctorDashboardPage() {
 
               <button
                 type="button"
-                onClick={() =>
-                  setSelectedAppointment(null)
-                }
-                className="grid size-9 place-items-center rounded-lg text-xl text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
+                onClick={handleCloseAppointmentModal}
+                className="grid size-9 place-items-center rounded-lg text-xl text-slate-500 transition-all duration-200 hover:scale-105 hover:bg-slate-100 hover:text-slate-800"
                 aria-label="Close"
               >
                 ×
@@ -994,14 +1227,14 @@ export default function DoctorDashboardPage() {
             </div>
 
             {/* Modal Body */}
-            <div className="space-y-6 p-6">
+           <div className="space-y-6 bg-white p-6 sm:p-7">
 
               {/* Patient */}
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-5">
 
-                <div className="flex items-center gap-4">
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 transition-colors duration-200 hover:border-emerald-200 hover:bg-emerald-50/30">
 
-                  <div className="grid size-14 shrink-0 place-items-center rounded-full bg-emerald-100 font-bold text-emerald-700">
+                  <div className="grid size-14 shrink-0 place-items-center rounded-full bg-emerald-100 font-bold text-emerald-700 ring-4 ring-emerald-50 transition-transform duration-200 hover:scale-105">
                     {selectedAppointment.patient.initials}
                   </div>
 
@@ -1030,7 +1263,7 @@ export default function DoctorDashboardPage() {
 
                 <div className="grid gap-4 sm:grid-cols-2">
 
-                  <div className="rounded-xl border border-slate-200 p-4">
+                  <div className="rounded-xl border border-slate-200 p-4 transition-colors duration-200 hover:border-emerald-200 hover:bg-emerald-50/30">
                     <p className="text-xs text-slate-500">
                       Date
                     </p>
@@ -1042,7 +1275,7 @@ export default function DoctorDashboardPage() {
                     </p>
                   </div>
 
-                  <div className="rounded-xl border border-slate-200 p-4">
+                  <div className="rounded-xl border border-slate-200 p-4 transition-colors duration-200 hover:border-emerald-200 hover:bg-emerald-50/30">
                     <p className="text-xs text-slate-500">
                       Time
                     </p>
@@ -1054,7 +1287,7 @@ export default function DoctorDashboardPage() {
                     </p>
                   </div>
 
-                  <div className="rounded-xl border border-slate-200 p-4">
+                  <div className="rounded-xl border border-slate-200 p-4 transition-colors duration-200 hover:border-emerald-200 hover:bg-emerald-50/30">
                     <p className="text-xs text-slate-500">
                       Appointment Type
                     </p>
@@ -1064,7 +1297,7 @@ export default function DoctorDashboardPage() {
                     </p>
                   </div>
 
-                  <div className="rounded-xl border border-slate-200 p-4">
+                  <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 transition-colors duration-200 hover:border-emerald-200 hover:bg-emerald-50/30">
                     <p className="text-xs text-slate-500">
                       Duration
                     </p>
@@ -1122,27 +1355,15 @@ export default function DoctorDashboardPage() {
             </div>
 
             {/* Modal Footer */}
-            <div className="flex flex-col-reverse gap-3 border-t border-slate-200 px-6 py-5 sm:flex-row sm:justify-end">
+            <div className="flex flex-col-reverse gap-3 border-t border-slate-200 bg-slate-50/50 px-6 py-5 sm:flex-row sm:justify-end">
 
               <button
                 type="button"
-                onClick={() =>
-                  setSelectedAppointment(null)
-                }
-                className="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                onClick={handleCloseAppointmentModal}
+                className="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-700 transition-all duration-200 hover:border-slate-300 hover:bg-slate-50 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
               >
                 Close
               </button>
-
-              <Link
-                href="/doctors/calendar"
-                onClick={() =>
-                  setSelectedAppointment(null)
-                }
-                className="rounded-xl bg-emerald-600 px-5 py-2.5 text-center text-sm font-semibold text-white transition hover:bg-emerald-700"
-              >
-                Open Calendar
-              </Link>
 
             </div>
 
