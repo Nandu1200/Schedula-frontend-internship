@@ -400,6 +400,19 @@ function BookingContent() {
       read: false,
     });
 
+        /*
+     * Create doctor notification.
+     */
+    addNotification({
+      id: `notification-${Date.now()}-doctor`,
+      userId: selectedDoctor.id,
+      type: "booking",
+      title: "New Appointment Request",
+      message: `${patient.name} has requested an appointment with you.`,
+      appointmentId: newAppointment.id,
+      createdAt: new Date().toISOString(),
+      read: false,
+    });
     /*
      * Update selected slot state.
      */
@@ -414,8 +427,8 @@ function BookingContent() {
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#f7faf9]">
-        <p className="text-slate-500">
+      <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#f7faf9] via-white to-emerald-50/30 px-4">
+        <p className="text-sm text-slate-500">
           Loading booking details...
         </p>
       </main>
@@ -425,23 +438,23 @@ function BookingContent() {
   if (!selectedDoctor || !selectedSlot) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#f7faf9] px-6">
-        <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
-          <div className="mx-auto grid size-14 place-items-center rounded-full bg-red-50 text-xl">
+        <div className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-lg shadow-slate-200/50 transition-shadow duration-200 hover:shadow-xl">
+          <div className="mx-auto grid size-14 place-items-center rounded-full border border-red-100 bg-red-50 text-xl font-bold text-red-600 shadow-sm">
             !
           </div>
 
-          <h1 className="mt-5 text-2xl font-bold">
+          <h1 className="mt-5 text-2xl font-bold tracking-tight text-slate-900">
             Unable to book appointment
           </h1>
 
-          <p className="mt-2 text-sm text-slate-500">
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
             {message ||
               "The selected doctor or appointment slot could not be found."}
           </p>
 
           <Link
             href="/doctors"
-            className="mt-6 inline-flex rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-700"
+            className="mt-6 inline-flex rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-emerald-700 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
           >
             Back to Doctors
           </Link>
@@ -451,15 +464,15 @@ function BookingContent() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f7faf9] text-slate-900">
+    <main className="min-h-screen bg-gradient-to-br from-[#f7faf9] via-white to-emerald-50/30 text-slate-900">
       {/* Navbar */}
-      <header className="border-b border-slate-200 bg-white">
+      <header className="border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur-sm">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4 lg:px-8">
           <Link
             href="/"
-            className="flex items-center gap-3"
+            className="flex items-center gap-3 transition-opacity duration-200 hover:opacity-90"
           >
-            <div className="grid size-10 place-items-center rounded-xl bg-emerald-600 text-lg font-bold text-white">
+            <div className="grid size-10 place-items-center rounded-xl bg-emerald-600 text-lg font-bold text-white shadow-sm transition-transform duration-200 hover:scale-105">
               S
             </div>
 
@@ -476,62 +489,62 @@ function BookingContent() {
 
           <Link
             href="/doctors"
-            className="rounded-lg px-3.5 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
+            className="rounded-xl px-3.5 py-2 text-sm font-semibold text-slate-700 transition-all duration-200 hover:bg-slate-100 hover:text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
           >
             Back to Doctors
           </Link>
         </div>
       </header>
 
-      <section className="mx-auto max-w-3xl px-6 py-10 lg:px-8">
+      <section className="mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
         {!confirmed ? (
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+          <div className="rounded-3xl border border-slate-200 bg-white/95 p-5 shadow-lg shadow-slate-200/50 backdrop-blur-sm transition-shadow duration-200 hover:shadow-xl sm:p-8">
             {/* Heading */}
             <div>
-              <p className="text-sm font-bold uppercase tracking-wider text-emerald-600">
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-600">
                 Appointment Booking
               </p>
 
-              <h1 className="mt-2 text-3xl font-bold tracking-tight">
+              <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
                 Confirm your appointment
               </h1>
 
-              <p className="mt-2 text-sm text-slate-500">
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
                 Review the doctor and selected appointment slot before confirming.
               </p>
             </div>
 
             {/* Doctor */}
-            <section className="mt-8 rounded-2xl border border-slate-200 p-5">
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+            <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-200 hover:border-emerald-200 hover:shadow-md sm:p-6">
+              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
                 Doctor
               </p>
 
-              <h2 className="mt-2 text-xl font-bold">
+              <h2 className="mt-2 text-xl font-bold tracking-tight text-slate-900">
                 {selectedDoctor.name}
               </h2>
 
-              <p className="mt-1 font-medium text-emerald-700">
+              <p className="mt-1 font-semibold text-emerald-700">
                 {selectedDoctor.specialty}
               </p>
 
               <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                <div className="rounded-xl bg-slate-50 p-4">
+                <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-4 transition-colors duration-200 hover:bg-emerald-50/40">
                   <p className="text-xs text-slate-500">
                     Qualification
                   </p>
 
-                  <p className="mt-1 text-sm font-semibold">
+                  <p className="mt-1 text-sm font-semibold text-slate-900">
                     {selectedDoctor.qualification}
                   </p>
                 </div>
 
-                <div className="rounded-xl bg-slate-50 p-4">
+                <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-4 transition-colors duration-200 hover:bg-emerald-50/40">
                   <p className="text-xs text-slate-500">
                     Consultation Fee
                   </p>
 
-                  <p className="mt-1 text-sm font-bold">
+                  <p className="mt-1 text-sm font-bold text-slate-900">
                     ₹{selectedDoctor.consultationFee}
                   </p>
                 </div>
@@ -539,14 +552,14 @@ function BookingContent() {
             </section>
 
             {/* Selected Slot */}
-            <section className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
-              <div className="flex items-center justify-between gap-4">
+            <section className="mt-5 rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-5 shadow-sm transition-all duration-200 hover:shadow-md sm:p-6">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700">
                     Selected Slot
                   </p>
 
-                  <h2 className="mt-2 text-lg font-bold text-slate-900">
+                  <h2 className="mt-2 text-lg font-bold tracking-tight text-slate-900 sm:text-xl">
                     {new Intl.DateTimeFormat("en-IN", {
                       weekday: "long",
                       day: "numeric",
@@ -559,13 +572,13 @@ function BookingContent() {
                     )}
                   </h2>
 
-                  <p className="mt-1 text-sm font-semibold text-emerald-700">
+                  <p className="mt-1 text-sm font-bold text-emerald-700">
                     {selectedSlot.startTime} -{" "}
                     {selectedSlot.endTime}
                   </p>
                 </div>
 
-                <span className="rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-bold text-emerald-700">
+                <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-100 px-3 py-1.5 text-xs font-bold text-emerald-700 shadow-sm">
                   Available
                 </span>
               </div>
@@ -574,7 +587,7 @@ function BookingContent() {
             {/* Message */}
             {message && (
               <div
-                className="mt-5 rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700"
+                className="mt-5 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-medium leading-6 text-red-700 shadow-sm"
                 role="alert"
               >
                 {message}
@@ -586,7 +599,7 @@ function BookingContent() {
               type="button"
               onClick={handleConfirm}
               disabled={confirming}
-              className="mt-7 w-full rounded-xl bg-emerald-600 px-5 py-3.5 text-sm font-bold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+              className="mt-7 w-full rounded-xl bg-emerald-600 px-5 py-3.5 text-sm font-bold text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-emerald-700 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
             >
               {confirming
                 ? "Submitting Appointment..."
@@ -594,9 +607,9 @@ function BookingContent() {
             </button>
           </div>
         ) : (
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 text-center shadow-sm sm:p-8">
+          <div className="rounded-3xl border border-slate-200 bg-white/95 p-5 text-center shadow-lg shadow-slate-200/50 backdrop-blur-sm transition-shadow duration-200 hover:shadow-xl sm:p-8">
             {/* Success */}
-            <div className="mx-auto grid size-16 place-items-center rounded-full bg-emerald-100 text-2xl font-bold text-emerald-700">
+            <div className="mx-auto grid size-16 place-items-center rounded-full border border-emerald-200 bg-emerald-100 text-2xl font-bold text-emerald-700 shadow-sm">
               ✓
             </div>
 
@@ -604,42 +617,42 @@ function BookingContent() {
               Booking Successful
             </p>
 
-            <h1 className="mt-2 text-3xl font-bold">
+            <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
               Appointment Requested!
             </h1>
 
-            <p className="mt-3 text-slate-500">
+            <p className="mx-auto mt-3 max-w-2xl leading-6 text-slate-500">
               Your appointment request has been submitted successfully and is waiting for doctor confirmation.
             </p>
 
             {/* Confirmation Details */}
-            <div className="mt-8 rounded-2xl border border-slate-200 p-5 text-left">
+            <div className="mt-8 rounded-2xl border border-slate-200 bg-slate-50/50 p-5 text-left shadow-sm sm:p-6">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
                   Doctor
                 </p>
 
-                <p className="mt-1 font-bold">
+                <p className="mt-1 font-bold text-slate-900">
                   {selectedDoctor.name}
                 </p>
               </div>
 
               <div className="mt-5">
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
                   Specialty
                 </p>
 
-                <p className="mt-1 font-semibold">
+                <p className="mt-1 font-semibold text-slate-900">
                   {selectedDoctor.specialty}
                 </p>
               </div>
 
               <div className="mt-5">
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
                   Date
                 </p>
 
-                <p className="mt-1 font-semibold">
+                <p className="mt-1 font-semibold text-slate-900">
                   {new Intl.DateTimeFormat("en-IN", {
                     weekday: "long",
                     day: "numeric",
@@ -654,22 +667,22 @@ function BookingContent() {
               </div>
 
               <div className="mt-5">
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
                   Time
                 </p>
 
-                <p className="mt-1 font-semibold">
+                <p className="mt-1 font-semibold text-slate-900">
                   {selectedSlot.startTime} -{" "}
                   {selectedSlot.endTime}
                 </p>
               </div>
 
               <div className="mt-5">
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
                   Status
                 </p>
 
-                <span className="mt-1 inline-flex rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700">
+                <span className="mt-1 inline-flex rounded-full border border-amber-200 bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700 shadow-sm">
                   Pending
                 </span>
               </div>
@@ -679,14 +692,14 @@ function BookingContent() {
             <div className="mt-7 grid gap-3 sm:grid-cols-2">
               <Link
                 href="/appointments"
-                className="rounded-xl bg-emerald-600 px-5 py-3 text-sm font-bold text-white hover:bg-emerald-700"
+                className="rounded-xl bg-emerald-600 px-5 py-3 text-sm font-bold text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-emerald-700 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
               >
                 My Appointments
               </Link>
 
               <Link
                 href="/doctors"
-                className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-bold text-slate-700 hover:border-emerald-500 hover:text-emerald-700"
+                className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-bold text-slate-700 transition-all duration-200 hover:-translate-y-0.5 hover:border-emerald-500 hover:bg-emerald-50/50 hover:text-emerald-700 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
               >
                 Find Another Doctor
               </Link>
@@ -702,8 +715,8 @@ export default function BookingPage() {
   return (
     <Suspense
       fallback={
-        <main className="flex min-h-screen items-center justify-center bg-[#f7faf9]">
-          <p className="text-slate-500">
+        <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#f7faf9] via-white to-emerald-50/30 px-4">
+          <p className="text-sm text-slate-500">
             Loading booking page...
           </p>
         </main>

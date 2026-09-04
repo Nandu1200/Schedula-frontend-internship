@@ -130,7 +130,7 @@ export default function DoctorDetailsPage() {
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#f7faf9]">
+      <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#f7faf9] via-white to-emerald-50/40">
         <p className="text-slate-500">
           Loading doctor profile...
         </p>
@@ -140,8 +140,8 @@ export default function DoctorDetailsPage() {
 
   if (!doctor) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#f7faf9] px-6">
-        <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+      <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#f7faf9] via-white to-emerald-50/40 px-6">
+        <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-md transition-shadow duration-200 hover:shadow-lg">
           <h1 className="text-2xl font-bold">
             Doctor not found
           </h1>
@@ -152,7 +152,7 @@ export default function DoctorDetailsPage() {
 
           <Link
             href="/doctors"
-            className="mt-6 inline-flex rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-700"
+            className="mt-6 inline-flex rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-emerald-700 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
           >
             Back to Doctors
           </Link>
@@ -162,17 +162,17 @@ export default function DoctorDetailsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f7faf9] text-slate-900">
+    <main className="min-h-screen bg-gradient-to-br from-[#f7faf9] via-white to-emerald-50/30 text-slate-900">
 
       {/* Navbar */}
-      <header className="border-b border-slate-200 bg-white">
+      <header className="border-b border-slate-200/80 bg-white/95 shadow-sm backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4 lg:px-8">
 
           <Link
             href="/"
-            className="flex items-center gap-3"
+            className="group flex items-center gap-3"
           >
-            <div className="grid size-10 place-items-center rounded-xl bg-emerald-600 text-lg font-bold text-white">
+            <div className="grid size-10 place-items-center rounded-xl bg-emerald-600 text-lg font-bold text-white shadow-sm transition-transform duration-200 group-hover:scale-105">
               S
             </div>
 
@@ -190,14 +190,14 @@ export default function DoctorDetailsPage() {
           <nav className="flex items-center gap-2">
             <Link
               href="/appointments"
-              className="rounded-lg px-3.5 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
+              className="rounded-lg px-3.5 py-2 text-sm font-semibold text-slate-700 transition-all duration-200 hover:bg-emerald-50 hover:text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
             >
               My Appointments
             </Link>
 
             <Link
               href="/doctors"
-              className="rounded-lg px-3.5 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
+              className="rounded-lg px-3.5 py-2 text-sm font-semibold text-slate-700 transition-all duration-200 hover:bg-emerald-50 hover:text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
             >
               Doctors
             </Link>
@@ -211,17 +211,17 @@ export default function DoctorDetailsPage() {
         {/* Back */}
         <Link
           href="/doctors"
-          className="inline-flex text-sm font-semibold text-emerald-700 hover:text-emerald-800"
+          className="inline-flex rounded-lg px-2 py-1 text-sm font-semibold text-emerald-700 transition-all duration-200 hover:bg-emerald-50 hover:text-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
         >
           ← Back to Doctors
         </Link>
 
         {/* Doctor Profile */}
-        <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+        <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-md transition-shadow duration-200 hover:shadow-lg sm:p-8">
 
           <div className="flex flex-col gap-6 md:flex-row">
 
-            <div className="grid size-24 shrink-0 place-items-center rounded-full bg-emerald-100 text-2xl font-bold text-emerald-700">
+            <div className="grid size-24 shrink-0 place-items-center rounded-full bg-emerald-100 text-2xl font-bold text-emerald-700 shadow-sm ring-8 ring-emerald-50 transition-transform duration-200 hover:scale-105">
               {getInitials(doctor.name)}
             </div>
 
@@ -243,7 +243,7 @@ export default function DoctorDetailsPage() {
                   </p>
                 </div>
 
-                <div className="rounded-xl bg-emerald-50 px-5 py-3">
+                <div className="rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-emerald-100/70 px-5 py-3 shadow-sm">
                   <p className="text-xs text-slate-500">
                     Consultation Fee
                   </p>
@@ -257,7 +257,7 @@ export default function DoctorDetailsPage() {
 
               <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
 
-                <div className="rounded-xl bg-slate-50 p-4">
+                <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-emerald-100 hover:bg-emerald-50/40 hover:shadow-sm">
                   <p className="text-xs text-slate-500">
                     Qualification
                   </p>
@@ -267,7 +267,7 @@ export default function DoctorDetailsPage() {
                   </p>
                 </div>
 
-                <div className="rounded-xl bg-slate-50 p-4">
+                <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-emerald-100 hover:bg-emerald-50/40 hover:shadow-sm">
                   <p className="text-xs text-slate-500">
                     Experience
                   </p>
@@ -277,7 +277,7 @@ export default function DoctorDetailsPage() {
                   </p>
                 </div>
 
-                <div className="rounded-xl bg-slate-50 p-4">
+                <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-emerald-100 hover:bg-emerald-50/40 hover:shadow-sm">
                   <p className="text-xs text-slate-500">
                     Hospital
                   </p>
@@ -287,7 +287,7 @@ export default function DoctorDetailsPage() {
                   </p>
                 </div>
 
-                <div className="rounded-xl bg-slate-50 p-4">
+                <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-emerald-100 hover:bg-emerald-50/40 hover:shadow-sm">
                   <p className="text-xs text-slate-500">
                     Location
                   </p>
@@ -316,9 +316,9 @@ export default function DoctorDetailsPage() {
         </section>
 
         {/* Availability */}
-        <section className="mt-8 rounded-3xl border border-slate-200 bg-white shadow-sm">
+        <section className="mt-8 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-md transition-shadow duration-200 hover:shadow-lg">
 
-          <div className="border-b border-slate-200 px-6 py-6 sm:px-8">
+          <div className="border-b border-slate-200 bg-slate-50/70 px-6 py-6 sm:px-8">
             <p className="text-sm font-bold uppercase tracking-wider text-emerald-600">
               Availability
             </p>
@@ -335,7 +335,7 @@ export default function DoctorDetailsPage() {
           {slots.length === 0 ? (
             <div className="px-6 py-14 text-center sm:px-8">
 
-              <div className="mx-auto grid size-14 place-items-center rounded-full bg-slate-100 text-xl">
+              <div className="mx-auto grid size-14 place-items-center rounded-full bg-emerald-50 text-xl shadow-sm ring-8 ring-emerald-50/60">
                 📅
               </div>
 
@@ -355,7 +355,7 @@ export default function DoctorDetailsPage() {
                 ([date, dateSlots]) => (
                   <div
                     key={date}
-                    className="rounded-2xl border border-slate-200 p-5"
+                    className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-md"
                   >
 
                     <div>
@@ -377,13 +377,13 @@ export default function DoctorDetailsPage() {
                         <Link
                           key={slot.id}
                           href={`/booking?doctorId=${doctor.id}&slotId=${slot.id}`}
-                          className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-4 transition hover:border-emerald-500 hover:bg-emerald-100"
+                          className="group/slot rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white px-4 py-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-emerald-500 hover:bg-emerald-100 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
                         >
                           <p className="text-sm font-bold text-emerald-800">
                             {slot.startTime} - {slot.endTime}
                           </p>
 
-                          <p className="mt-1 text-xs font-medium text-emerald-700">
+                          <p className="mt-1 text-xs font-semibold text-emerald-700 transition-colors duration-200 group-hover/slot:text-emerald-800">
                             Book this slot →
                           </p>
                         </Link>
