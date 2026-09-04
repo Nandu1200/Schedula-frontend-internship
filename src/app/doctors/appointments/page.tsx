@@ -146,6 +146,12 @@ export default function DoctorAppointmentsPage() {
 
   const [rescheduleError, setRescheduleError] = useState("");
 
+  const [followUpAppointment, setFollowUpAppointment] =
+    useState<Appointment | null>(null);
+
+  const [followUpDays, setFollowUpDays] = useState("7");
+  const [followUpNote, setFollowUpNote] = useState("");
+
   /*
    * Load doctor appointments.
    */
@@ -860,6 +866,115 @@ export default function DoctorAppointmentsPage() {
     setSelectedAppointment(null);
   };
 
+  const openFollowUp = (appointment: Appointment) => {
+    setSelectedAppointment(null);
+    setFollowUpAppointment(appointment);
+    setFollowUpDays("7");
+    setFollowUpNote("");
+  };
+
+  const closeFollowUp = () => {
+    setFollowUpAppointment(null);
+    setFollowUpDays("7");
+    setFollowUpNote("");
+  };
+
+  const handleRecommendFollowUp = () => {
+    if (!followUpAppointment) return;
+
+    try {
+      const storedAppointments =
+        localStorage.getItem("appointments");
+
+      if (!storedAppointments) {
+        throw new Error("Appointments not found.");
+      }
+
+      const allAppointments =
+        JSON.parse(storedAppointments) as Appointment[];
+
+      const afterDays = Number(followUpDays);
+
+      const updatedAppointments =
+        allAppointments.map((appointment) =>
+          appointment.id === followUpAppointment.id
+            ? {
+                ...appointment,
+                followUp: {
+                  recommended: true,
+                  afterDays,
+                  note:
+                    followUpNote.trim() || undefined,
+                },
+              }
+            : appointment
+        );
+
+      const updatedAppointment =
+        updatedAppointments.find(
+          (appointment) =>
+            appointment.id === followUpAppointment.id
+        );
+
+      if (!updatedAppointment) {
+        throw new Error("Appointment not found.");
+      }
+
+      localStorage.setItem(
+        "appointments",
+        JSON.stringify(updatedAppointments)
+      );
+
+      setAppointments((currentAppointments) =>
+        currentAppointments.map((appointment) =>
+          appointment.id === updatedAppointment.id
+            ? updatedAppointment
+            : appointment
+        )
+      );
+
+      window.dispatchEvent(
+        new Event("appointments-updated")
+      );
+
+      /*
+       * Notify patient about the recommended follow-up.
+       */
+      if (followUpAppointment.patient.id) {
+        addNotification({
+          id: `notification-${Date.now()}`,
+          userId: followUpAppointment.patient.id,
+          type: "reminder",
+          title: "Follow-up Recommended",
+          message: `Dr. ${followUpAppointment.clinician.replace(
+            /^Dr\.?\s*/i,
+            ""
+          )} recommends a follow-up after ${afterDays} days.${
+            followUpNote.trim()
+              ? ` Note: ${followUpNote.trim()}`
+              : ""
+          }`,
+          appointmentId: followUpAppointment.id,
+          createdAt: new Date().toISOString(),
+          read: false,
+        });
+
+        window.dispatchEvent(
+          new Event("notifications-updated")
+        );
+      }
+
+      setSelectedAppointment(updatedAppointment);
+      closeFollowUp();
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Unable to save the follow-up recommendation. Please try again."
+      );
+    }
+  };
+
   const openDetails = (
     appointment: Appointment
   ) => {
@@ -868,7 +983,7 @@ export default function DoctorAppointmentsPage() {
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-gray-50">
+      <main className="flex min-h-screen items-center justify-center bg-[#f7faf9]">
         <p className="text-gray-500">
           Loading appointments...
         </p>
@@ -877,7 +992,7 @@ export default function DoctorAppointmentsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-gray-50 px-4 py-8 sm:px-8">
+    <main className="min-h-screen bg-[#f7faf9] px-4 py-8 transition-colors duration-200 sm:px-8">
       <div className="mx-auto max-w-7xl">
 
         {/* Header */}
@@ -903,7 +1018,7 @@ export default function DoctorAppointmentsPage() {
         )}
 
         {/* Filters */}
-        <section className="mb-6 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+        <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow duration-200 hover:shadow-md">
 
           <div className="grid gap-4 md:grid-cols-[1fr_220px_auto]">
 
@@ -1032,13 +1147,13 @@ export default function DoctorAppointmentsPage() {
 
         {/* Empty */}
         {filteredAppointments.length === 0 ? (
-          <div className="rounded-2xl border border-gray-200 bg-white p-10 text-center shadow-sm">
+          <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center shadow-sm transition-shadow duration-200 hover:shadow-md">
 
             <div className="mx-auto grid size-14 place-items-center rounded-full bg-emerald-50 text-2xl text-emerald-600">
               📅
             </div>
 
-            <h2 className="mt-4 text-lg font-semibold text-slate-900">
+            <h2 className="text-lg font-bold tracking-tight text-slate-900">
               No appointments found
             </h2>
 
@@ -1049,7 +1164,7 @@ export default function DoctorAppointmentsPage() {
             <button
               type="button"
               onClick={clearFilters}
-              className="mt-5 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
+              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition-all duration-200 hover:bg-slate-50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
             >
               Clear Filters
             </button>
@@ -1085,7 +1200,7 @@ export default function DoctorAppointmentsPage() {
                 return (
                   <article
                     key={appointment.id}
-                    className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm"
+                    className="group rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-emerald-200 hover:shadow-md"
                   >
 
                     {/* Patient + Status */}
@@ -1109,7 +1224,7 @@ export default function DoctorAppointmentsPage() {
                       <div className="flex flex-wrap gap-2">
 
                         <span
-                          className={`w-fit rounded-full border px-3 py-1 text-sm font-medium ${
+                          className={`w-fit rounded-full border px-3 py-1 text-sm font-medium transition-all duration-200 ${
                             appointment.status ===
                             "cancelled"
                               ? "border-red-300 bg-red-50 text-red-700"
@@ -1129,7 +1244,7 @@ export default function DoctorAppointmentsPage() {
                         </span>
 
                         {category === "upcoming" && (
-                          <span className="w-fit rounded-full border border-purple-300 bg-purple-50 px-3 py-1 text-sm font-medium text-purple-700">
+                          <span className="w-fit rounded-full border border-purple-300 bg-purple-50 px-3 py-1 text-sm font-medium text-purple-700 transition-all duration-200">
                             Upcoming
                           </span>
                         )}
@@ -1211,8 +1326,8 @@ export default function DoctorAppointmentsPage() {
                             appointment
                           )
                         }
-                        className="rounded-lg border border-emerald-600 px-4 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50"
-                      >
+                        className="rounded-lg border border-emerald-600 px-4 py-2 text-sm font-semibold text-emerald-700 transition-all duration-200 hover:bg-emerald-50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+                        >
                         View Details
                       </button>
 
@@ -1224,7 +1339,7 @@ export default function DoctorAppointmentsPage() {
                               appointment
                             )
                           }
-                          className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
+                          className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition-all duration-200 hover:bg-emerald-700 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
                         >
                           Reschedule
                         </button>
@@ -1249,7 +1364,7 @@ export default function DoctorAppointmentsPage() {
                             actionId ===
                             appointment.id
                           }
-                          className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                          className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition-all duration-200 hover:bg-emerald-700 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           Confirm Appointment
                         </button>
@@ -1266,7 +1381,7 @@ export default function DoctorAppointmentsPage() {
                             actionId ===
                             appointment.id
                           }
-                          className="rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                          className="rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-600 transition-all duration-200 hover:bg-red-50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           Decline Appointment
                         </button>
@@ -1293,7 +1408,7 @@ export default function DoctorAppointmentsPage() {
                                 actionId ===
                                 appointment.id
                               }
-                              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-all duration-200 hover:bg-blue-700 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
                             >
                               Mark as Completed
                             </button>
@@ -1310,7 +1425,7 @@ export default function DoctorAppointmentsPage() {
                                 actionId ===
                                 appointment.id
                               }
-                              className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                              className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition-all duration-200 hover:bg-gray-50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
                             >
                               Mark as Missed
                             </button>
@@ -1329,7 +1444,7 @@ export default function DoctorAppointmentsPage() {
                               actionId ===
                               appointment.id
                             }
-                            className="rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                            className="rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-600 transition-all duration-200 hover:bg-red-50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
                           >
                             Cancel Appointment
                           </button>
@@ -1342,7 +1457,7 @@ export default function DoctorAppointmentsPage() {
                     {appointment.status ===
                       "completed" && (
                       <div className="mt-3 border-t border-gray-100 pt-5">
-                        <div className="rounded-lg bg-blue-50 px-4 py-3">
+                        <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 transition-colors duration-200 hover:bg-blue-100/60">
                           <p className="text-sm font-semibold text-blue-700">
                             Appointment Completed
                           </p>
@@ -1351,6 +1466,16 @@ export default function DoctorAppointmentsPage() {
                             This appointment is
                             read-only.
                           </p>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              openFollowUp(appointment)
+                            }
+                            className="mt-4 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition-all duration-200 hover:bg-emerald-700 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+                          >
+                            Recommend Follow-up
+                          </button>
                         </div>
                       </div>
                     )}
@@ -1359,7 +1484,7 @@ export default function DoctorAppointmentsPage() {
                     {appointment.status ===
                       "missed" && (
                       <div className="mt-3 border-t border-gray-100 pt-5">
-                        <div className="rounded-lg bg-gray-50 px-4 py-3">
+                        <div className="rounded-lg border border-slate-200 bg-gray-50 px-4 py-3 transition-colors duration-200 hover:bg-slate-100/70">
                           <p className="text-sm font-semibold text-gray-700">
                             Appointment Missed
                           </p>
@@ -1376,7 +1501,7 @@ export default function DoctorAppointmentsPage() {
                     {appointment.status ===
                       "cancelled" && (
                       <div className="mt-3 border-t border-gray-100 pt-5">
-                        <div className="rounded-lg bg-red-50 px-4 py-3">
+                        <div className="rounded-lg border border-red-100 bg-red-50 px-4 py-3 transition-colors duration-200 hover:bg-red-100/60">
                           <p className="text-sm font-semibold text-red-700">
                             Appointment Cancelled
                           </p>
@@ -1405,7 +1530,7 @@ export default function DoctorAppointmentsPage() {
 
       {selectedAppointment && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm"
           role="dialog"
           aria-modal="true"
           aria-labelledby="appointment-details-title"
@@ -1417,9 +1542,9 @@ export default function DoctorAppointmentsPage() {
             }
           }}
         >
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl">
 
-            <div className="flex items-start justify-between border-b border-gray-100 p-6">
+            <div className="flex items-start justify-between border-b border-slate-200 bg-slate-50/50 p-6">
 
               <div>
                 <p className="text-sm font-semibold uppercase tracking-wide text-emerald-600">
@@ -1440,7 +1565,7 @@ export default function DoctorAppointmentsPage() {
                 type="button"
                 onClick={closeDetails}
                 aria-label="Close appointment details"
-                className="grid size-9 place-items-center rounded-full text-xl text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+                className="grid size-9 place-items-center rounded-full text-xl text-slate-500 transition-all duration-200 hover:scale-105 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
               >
                 ×
               </button>
@@ -1455,9 +1580,9 @@ export default function DoctorAppointmentsPage() {
                   Patient
                 </h3>
 
-                <div className="mt-3 flex items-center gap-4 rounded-xl bg-slate-50 p-4">
+                <div className="mt-3 flex items-center gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 transition-colors duration-200 hover:border-emerald-200 hover:bg-emerald-50/40">
 
-                  <div className="grid size-12 shrink-0 place-items-center rounded-full bg-emerald-100 font-bold text-emerald-700">
+                  <div className="grid size-12 shrink-0 place-items-center rounded-full bg-emerald-100 font-bold text-emerald-700 transition-transform duration-200 hover:scale-105">
                     {
                       selectedAppointment.patient
                         .initials
@@ -1492,7 +1617,7 @@ export default function DoctorAppointmentsPage() {
 
                 <div className="mt-3 grid gap-4 sm:grid-cols-2">
 
-                  <div className="rounded-xl border border-slate-200 p-4">
+                  <div className="rounded-xl border border-slate-200 p-4 transition-colors duration-200 hover:border-emerald-200 hover:bg-emerald-50/30">
                     <p className="text-sm text-slate-500">
                       Doctor
                     </p>
@@ -1504,7 +1629,7 @@ export default function DoctorAppointmentsPage() {
                     </p>
                   </div>
 
-                  <div className="rounded-xl border border-slate-200 p-4">
+                  <div className="rounded-xl border border-slate-200 p-4 transition-colors duration-200 hover:border-emerald-200 hover:bg-emerald-50/30">
                     <p className="text-sm text-slate-500">
                       Specialty
                     </p>
@@ -1516,7 +1641,7 @@ export default function DoctorAppointmentsPage() {
                     </p>
                   </div>
 
-                  <div className="rounded-xl border border-slate-200 p-4">
+                  <div className="rounded-xl border border-slate-200 p-4 transition-colors duration-200 hover:border-emerald-200 hover:bg-emerald-50/30">
                     <p className="text-sm text-slate-500">
                       Date & Time
                     </p>
@@ -1528,7 +1653,7 @@ export default function DoctorAppointmentsPage() {
                     </p>
                   </div>
 
-                  <div className="rounded-xl border border-slate-200 p-4">
+                  <div className="rounded-xl border border-slate-200 p-4 transition-colors duration-200 hover:border-emerald-200 hover:bg-emerald-50/30">
                     <p className="text-sm text-slate-500">
                       Duration
                     </p>
@@ -1542,7 +1667,7 @@ export default function DoctorAppointmentsPage() {
                     </p>
                   </div>
 
-                  <div className="rounded-xl border border-slate-200 p-4">
+                  <div className="rounded-xl border border-slate-200 p-4 transition-colors duration-200 hover:border-emerald-200 hover:bg-emerald-50/30">
                     <p className="text-sm text-slate-500">
                       Appointment Type
                     </p>
@@ -1552,7 +1677,7 @@ export default function DoctorAppointmentsPage() {
                     </p>
                   </div>
 
-                  <div className="rounded-xl border border-slate-200 p-4">
+                  <div className="rounded-xl border border-slate-200 p-4 transition-colors duration-200 hover:border-emerald-200 hover:bg-emerald-50/30">
                     <p className="text-sm text-slate-500">
                       Room
                     </p>
@@ -1573,7 +1698,7 @@ export default function DoctorAppointmentsPage() {
                   Reason for Visit
                 </h3>
 
-                <div className="mt-3 rounded-xl border border-slate-200 p-4">
+                <div className="mt-3 rounded-xl border border-slate-200 p-4 transition-colors duration-200 hover:border-emerald-200 hover:bg-emerald-50/30">
                   <p className="text-sm leading-6 text-slate-700">
                     {
                       selectedAppointment.reason
@@ -1590,7 +1715,7 @@ export default function DoctorAppointmentsPage() {
 
                 <div className="mt-3">
                   <span
-                    className={`inline-flex rounded-full border px-4 py-2 text-sm font-semibold ${
+                    className={`inline-flex rounded-full border px-4 py-2 text-sm font-semibold transition-all duration-200 ${
                       selectedAppointment.status ===
                       "cancelled"
                         ? "border-red-300 bg-red-50 text-red-700"
@@ -1612,11 +1737,37 @@ export default function DoctorAppointmentsPage() {
                   </span>
                 </div>
               </section>
+              {/* Patient Review */}
+{selectedAppointment.review && (
+  <section>
+    <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+      Patient Review
+    </h3>
+
+    <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-4 transition-colors duration-200 hover:bg-amber-100/60">
+      <div className="flex items-center gap-2">
+        <span className="text-lg">
+          {"★".repeat(selectedAppointment.review.rating)}
+        </span>
+
+        <span className="text-sm font-semibold text-slate-700">
+          {selectedAppointment.review.rating}/5
+        </span>
+      </div>
+
+      {selectedAppointment.review.comment && (
+        <p className="mt-3 text-sm leading-6 text-slate-700">
+          {selectedAppointment.review.comment}
+        </p>
+      )}
+    </div>
+  </section>
+)}
 
             </div>
 
             {/* Details Actions */}
-            <div className="flex flex-col gap-3 border-t border-gray-100 p-6 sm:flex-row sm:justify-end">
+            <div className="flex flex-col gap-3 border-t border-slate-200 bg-slate-50/50 p-6 sm:flex-row sm:justify-end">
 
               {/* Pending */}
               {selectedAppointment.status ===
@@ -1630,7 +1781,7 @@ export default function DoctorAppointmentsPage() {
                         "confirmed"
                       )
                     }
-                    className="rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700"
+                    className="rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white transition-all duration-200 hover:bg-emerald-700 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
                   >
                     Confirm Appointment
                   </button>
@@ -1643,7 +1794,7 @@ export default function DoctorAppointmentsPage() {
                         "cancelled"
                       )
                     }
-                    className="rounded-lg border border-red-300 px-5 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-50"
+                    className="rounded-lg border border-red-300 px-5 py-2.5 text-sm font-semibold text-red-600 transition-all duration-200 hover:bg-red-50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
                   >
                     Decline Appointment
                   </button>
@@ -1665,7 +1816,7 @@ export default function DoctorAppointmentsPage() {
                           selectedAppointment
                         )
                       }
-                      className="rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700"
+                      className="rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white transition-all duration-200 hover:bg-emerald-700 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
                     >
                       Reschedule
                     </button>
@@ -1677,7 +1828,7 @@ export default function DoctorAppointmentsPage() {
                           selectedAppointment
                         )
                       }
-                      className="rounded-lg border border-red-300 px-5 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-50"
+                      className="rounded-lg border border-red-300 px-5 py-2.5 text-sm font-semibold text-red-600 transition-all duration-200 hover:bg-red-50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
                     >
                       Cancel Appointment
                     </button>
@@ -1700,7 +1851,7 @@ export default function DoctorAppointmentsPage() {
                           "completed"
                         )
                       }
-                      className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
+                      className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition-all duration-200 hover:bg-blue-700 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
                     >
                       Mark as Completed
                     </button>
@@ -1713,7 +1864,7 @@ export default function DoctorAppointmentsPage() {
                           "missed"
                         )
                       }
-                      className="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                      className="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700 transition-all duration-200 hover:bg-slate-50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500 focus-visible:ring-offset-2"
                     >
                       Mark as Missed
                     </button>
@@ -1722,7 +1873,7 @@ export default function DoctorAppointmentsPage() {
 
               {/* Read only */}
          {selectedAppointment.status === "completed" && (
-  <div className="mr-auto rounded-lg bg-blue-50 px-4 py-3">
+  <div className="mr-auto rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 transition-colors duration-200 hover:bg-blue-100/60">
     <p className="text-sm font-semibold text-blue-700">
       Appointment Completed
     </p>
@@ -1741,7 +1892,7 @@ export default function DoctorAppointmentsPage() {
 
 {(selectedAppointment.status === "cancelled" ||
   selectedAppointment.status === "missed") && (
-  <p className="mr-auto self-center text-sm text-slate-500">
+  <p className="mr-auto self-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-500">
     This appointment is read-only.
   </p>
 )}
@@ -1769,7 +1920,7 @@ export default function DoctorAppointmentsPage() {
 <button
   type="button"
   onClick={closeDetails}
-  className="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+  className="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700 transition-all duration-200 hover:bg-slate-50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500 focus-visible:ring-offset-2"
 >
   Close
 </button>
@@ -1782,12 +1933,158 @@ export default function DoctorAppointmentsPage() {
       )}
 
       {/* ================================================= */}
+      {/* Follow-up Recommendation Modal */}
+      {/* ================================================= */}
+
+      {followUpAppointment && (
+        <div
+          className="fixed inset-0 z-[55] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="follow-up-title"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              closeFollowUp();
+            }
+          }}
+        >
+          <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+
+            <div className="border-b border-slate-200 bg-slate-50/50 p-6">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm font-semibold uppercase tracking-wide text-emerald-600">
+                    Follow-up Recommendation
+                  </p>
+
+                  <h2
+                    id="follow-up-title"
+                    className="mt-1 text-2xl font-bold text-slate-900"
+                  >
+                    Recommend a follow-up
+                  </h2>
+
+                  <p className="mt-2 text-sm leading-6 text-slate-500">
+                    Choose when the patient should return for a follow-up appointment.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={closeFollowUp}
+                  aria-label="Close follow-up recommendation"
+                  className="grid size-9 shrink-0 place-items-center rounded-full text-xl text-slate-500 transition-all duration-200 hover:scale-105 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-6 p-6">
+              <div>
+                <p className="text-sm font-semibold text-slate-700">
+                  Patient
+                </p>
+                <div className="mt-3 flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="grid size-11 place-items-center rounded-full bg-emerald-100 font-bold text-emerald-700">
+                    {followUpAppointment.patient.initials}
+                  </div>
+                  <div>
+                    <p className="font-semibold text-slate-900">
+                      {followUpAppointment.patient.name}
+                    </p>
+                    <p className="mt-1 text-sm text-slate-500">
+                      {followUpAppointment.specialty}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-sm font-semibold text-slate-700">
+                  Follow-up after
+                </p>
+
+                <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                  {["7", "15", "30"].map((days) => (
+                    <label
+                      key={days}
+                      className={`cursor-pointer rounded-xl border p-4 text-center transition-all duration-200 ${
+                        followUpDays === days
+                          ? "border-emerald-600 bg-emerald-50 ring-2 ring-emerald-100"
+                          : "border-slate-200 bg-white hover:border-emerald-300 hover:bg-emerald-50/40"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="follow-up-days"
+                        value={days}
+                        checked={followUpDays === days}
+                        onChange={(event) =>
+                          setFollowUpDays(event.target.value)
+                        }
+                        className="sr-only"
+                      />
+                      <span className="block text-lg font-bold text-slate-900">
+                        {days}
+                      </span>
+                      <span className="mt-1 block text-xs font-medium text-slate-500">
+                        days
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="follow-up-note"
+                  className="text-sm font-semibold text-slate-700"
+                >
+                  Note
+                </label>
+                <textarea
+                  id="follow-up-note"
+                  value={followUpNote}
+                  onChange={(event) =>
+                    setFollowUpNote(event.target.value)
+                  }
+                  rows={4}
+                  placeholder="Add an optional follow-up note for the patient..."
+                  className="mt-3 w-full resize-none rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3 border-t border-slate-200 bg-slate-50/50 p-6 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={closeFollowUp}
+                className="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700 transition-all duration-200 hover:bg-white hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500 focus-visible:ring-offset-2"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={handleRecommendFollowUp}
+                className="rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white transition-all duration-200 hover:bg-emerald-700 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+              >
+                Recommend Follow-up
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* ================================================= */}
       {/* Reschedule Modal */}
       {/* ================================================= */}
 
       {rescheduleAppointment && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 p-4"
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm"
           role="dialog"
           aria-modal="true"
           aria-labelledby="reschedule-title"
@@ -1800,10 +2097,10 @@ export default function DoctorAppointmentsPage() {
           }}
         >
 
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl">
 
             {/* Header */}
-            <div className="flex items-start justify-between border-b border-gray-100 p-6">
+            <div className="flex items-start justify-between border-b border-slate-200 bg-slate-50/50 p-6">
 
               <div>
                 <p className="text-sm font-semibold uppercase tracking-wide text-emerald-600">
@@ -1831,7 +2128,7 @@ export default function DoctorAppointmentsPage() {
                 type="button"
                 onClick={closeReschedule}
                 aria-label="Close reschedule modal"
-                className="grid size-9 place-items-center rounded-full text-xl text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+                className="grid size-9 place-items-center rounded-full text-xl text-slate-500 transition-all duration-200 hover:scale-105 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
               >
                 ×
               </button>
@@ -1843,7 +2140,7 @@ export default function DoctorAppointmentsPage() {
 
               {rescheduleError && (
                 <div
-                  className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700"
+                  className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700 transition-colors duration-200"
                   role="alert"
                 >
                   {rescheduleError}
@@ -1857,7 +2154,7 @@ export default function DoctorAppointmentsPage() {
                   </p>
                 </div>
               ) : availableSlots.length === 0 ? (
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-8 text-center">
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-8 text-center transition-colors duration-200 hover:border-emerald-200 hover:bg-emerald-50/30">
 
                   <div className="mx-auto grid size-12 place-items-center rounded-full bg-white text-xl">
                     📅
@@ -1925,7 +2222,7 @@ export default function DoctorAppointmentsPage() {
                                       slot.id
                                     )
                                   }
-                                  className={`rounded-xl border p-4 text-left transition ${
+                                  className={`rounded-xl border p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm ${
                                     selectedSlotId ===
                                     slot.id
                                       ? "border-emerald-600 bg-emerald-50 ring-2 ring-emerald-100"
@@ -1974,12 +2271,12 @@ export default function DoctorAppointmentsPage() {
             </div>
 
             {/* Footer */}
-            <div className="flex flex-col gap-3 border-t border-gray-100 p-6 sm:flex-row sm:justify-end">
+            <div className="flex flex-col gap-3 border-t border-slate-200 bg-slate-50/50 p-6 sm:flex-row sm:justify-end">
 
               <button
                 type="button"
                 onClick={closeReschedule}
-                className="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                className="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700 transition-all duration-200 hover:bg-slate-50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500 focus-visible:ring-offset-2"
               >
                 Cancel
               </button>
@@ -1993,7 +2290,7 @@ export default function DoctorAppointmentsPage() {
                   actionId ===
                     rescheduleAppointment.id
                 }
-                className="rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white transition-all duration-200 hover:bg-emerald-700 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {actionId ===
                 rescheduleAppointment.id

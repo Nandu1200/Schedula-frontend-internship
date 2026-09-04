@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 
 type StoredPatient = {
   name?: string;
@@ -23,7 +23,9 @@ type StoredPatient = {
 };
 
 type StoredAppointment = {
-  patientName?: string;
+  patient?: {
+    name?: string;
+  };
   status?: string;
   prescription?: unknown;
 };
@@ -63,10 +65,10 @@ const getAppointmentStats = () => {
     const patientAppointments =
       loggedInPatientName
         ? appointments.filter(
-            (appointment) =>
-              appointment.patientName
-                ?.trim()
-                .toLowerCase() === loggedInPatientName
+           (appointment) =>
+  appointment.patient?.name
+    ?.trim()
+    .toLowerCase() === loggedInPatientName
           )
         : appointments;
 
@@ -119,8 +121,22 @@ const getStoredPatient = (): StoredPatient => {
 };
 
 export default function PatientProfilePage() {
-  const storedPatient = getStoredPatient();
-  const appointmentStats = getAppointmentStats();
+ const storedPatient = getStoredPatient();
+
+const appointmentStatsData = useSyncExternalStore(
+  () => () => {},
+  () => JSON.stringify(getAppointmentStats()),
+  () =>
+    JSON.stringify({
+      totalPrescriptions: 0,
+      completedAppointments: 0,
+    })
+);
+
+const appointmentStats = JSON.parse(appointmentStatsData) as {
+  totalPrescriptions: number;
+  completedAppointments: number;
+};
 
   const [name, setName] = useState(
     storedPatient.name ?? ""
@@ -366,15 +382,15 @@ if (!emergencyContactPhone.trim()) {
   };
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-[#f2faf7] via-white to-[#eef9f5] px-4 py-8 sm:px-6 lg:px-8">
+    <main className="min-h-screen bg-[#f7faf9] px-4 py-8 transition-colors duration-200 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-6xl">
 
         {/* Page Header */}
         <div className="mb-8">
-          <div className="flex flex-col gap-5 rounded-3xl border border-emerald-100 bg-white p-6 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-8">
+          <div className="flex flex-col gap-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow duration-200 hover:shadow-md sm:flex-row sm:items-center sm:justify-between sm:p-6">
             
             <div className="flex items-center gap-4">
-              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-emerald-100 text-2xl">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-emerald-100 text-2xl shadow-sm transition-transform duration-200 hover:scale-105">
                 👤
               </div>
 
@@ -387,13 +403,13 @@ if (!emergencyContactPhone.trim()) {
                   My Profile
                 </h1>
 
-                <p className="mt-1 text-sm text-slate-500 sm:text-base">
+                <p className="mt-1 text-sm leading-6 text-slate-500 sm:text-base">
                   Manage your personal and medical information.
                 </p>
               </div>
             </div>
 
-            <div className="hidden rounded-2xl bg-emerald-50 px-5 py-4 sm:block">
+            <div className="hidden rounded-2xl border border-emerald-100 bg-emerald-50 px-5 py-4 shadow-sm sm:block">
               <p className="text-xs font-semibold uppercase tracking-wide text-emerald-600">
                 Profile Status
               </p>
@@ -408,7 +424,7 @@ if (!emergencyContactPhone.trim()) {
         <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
 
           {/* Total Prescriptions */}
-          <div className="rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+          <div className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-md">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-slate-500">
@@ -420,7 +436,7 @@ if (!emergencyContactPhone.trim()) {
                 </p>
               </div>
 
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-100 text-xl">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-100 text-xl shadow-sm transition-transform duration-200 group-hover:scale-105">
                 💊
               </div>
             </div>
@@ -431,7 +447,7 @@ if (!emergencyContactPhone.trim()) {
           </div>
 
           {/* Completed Appointments */}
-          <div className="rounded-2xl border border-sky-100 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+          <div className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-sky-200 hover:shadow-md">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-slate-500">
@@ -443,7 +459,7 @@ if (!emergencyContactPhone.trim()) {
                 </p>
               </div>
 
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-sky-100 text-xl">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-sky-100 text-xl shadow-sm transition-transform duration-200 group-hover:scale-105">
                 📅
               </div>
             </div>
@@ -454,7 +470,7 @@ if (!emergencyContactPhone.trim()) {
           </div>
 
           {/* Test Reports */}
-          <div className="rounded-2xl border border-violet-100 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+          <div className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-violet-200 hover:shadow-md">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-slate-500">
@@ -466,7 +482,7 @@ if (!emergencyContactPhone.trim()) {
                 </p>
               </div>
 
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-violet-100 text-xl">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-violet-100 text-xl shadow-sm transition-transform duration-200 group-hover:scale-105">
                 🧪
               </div>
             </div>
@@ -481,19 +497,19 @@ if (!emergencyContactPhone.trim()) {
         <div className="space-y-6">
 
           {/* Personal Information */}
-          <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+          <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md">
             <div className="border-b border-slate-100 bg-gradient-to-r from-emerald-50/80 to-white px-6 py-5 sm:px-8">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-lg">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-lg shadow-sm transition-transform duration-200 hover:scale-105">
                   🧑
                 </div>
 
                 <div>
-                  <h2 className="text-lg font-bold text-slate-900">
+                  <h2 className="text-lg font-bold tracking-tight text-slate-900">
                     Personal Information
                   </h2>
 
-                  <p className="text-sm text-slate-500">
+                  <p className="text-sm leading-6 text-slate-500">
                     Keep your personal information up to date.
                   </p>
                 </div>
@@ -518,7 +534,7 @@ if (!emergencyContactPhone.trim()) {
                     setName(event.target.value)
                   }
                   placeholder="Enter your full name"
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-100"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 outline-none transition-all duration-200 placeholder:text-slate-400 hover:border-slate-300 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-100"
                 />
               </div>
 
@@ -538,7 +554,7 @@ if (!emergencyContactPhone.trim()) {
                     setEmail(event.target.value)
                   }
                   placeholder="Enter your email"
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-100"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 outline-none transition-all duration-200 placeholder:text-slate-400 hover:border-slate-300 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-100"
                 />
               </div>
 
@@ -558,7 +574,7 @@ if (!emergencyContactPhone.trim()) {
                     setPhone(event.target.value)
                   }
                   placeholder="Enter your phone number"
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-100"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 outline-none transition-all duration-200 placeholder:text-slate-400 hover:border-slate-300 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-100"
                 />
               </div>
 
@@ -577,7 +593,7 @@ if (!emergencyContactPhone.trim()) {
                   onChange={(event) =>
                     setDateOfBirth(event.target.value)
                   }
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-100"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 outline-none transition-all duration-200 hover:border-slate-300 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-100"
                 />
               </div>
 
@@ -595,7 +611,7 @@ if (!emergencyContactPhone.trim()) {
                   onChange={(event) =>
                     setGender(event.target.value)
                   }
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-100"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 outline-none transition-all duration-200 hover:border-slate-300 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-100"
                 >
                   <option value="">
                     Select gender
@@ -615,19 +631,19 @@ if (!emergencyContactPhone.trim()) {
           </section>
 
           {/* Physical Details */}
-          <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+          <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md">
             <div className="border-b border-slate-100 bg-gradient-to-r from-sky-50/70 to-white px-6 py-5 sm:px-8">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-100 text-lg">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-100 text-lg shadow-sm transition-transform duration-200 hover:scale-105">
                   ⚕️
                 </div>
 
                 <div>
-                  <h2 className="text-lg font-bold text-slate-900">
+                  <h2 className="text-lg font-bold tracking-tight text-slate-900">
                     Physical Details
                   </h2>
 
-                  <p className="text-sm text-slate-500">
+                  <p className="text-sm leading-6 text-slate-500">
                     Add your basic physical information.
                   </p>
                 </div>
@@ -653,7 +669,7 @@ if (!emergencyContactPhone.trim()) {
                       setHeight(event.target.value)
                     }
                     placeholder="e.g. 175"
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 pr-14 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-100"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 pr-14 text-sm text-slate-900 outline-none transition-all duration-200 placeholder:text-slate-400 hover:border-slate-300 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-100"
                   />
 
                   <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400">
@@ -679,7 +695,7 @@ if (!emergencyContactPhone.trim()) {
                       setWeight(event.target.value)
                     }
                     placeholder="e.g. 70"
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 pr-14 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-100"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 pr-14 text-sm text-slate-900 outline-none transition-all duration-200 placeholder:text-slate-400 hover:border-slate-300 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-100"
                   />
 
                   <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400">
@@ -702,7 +718,7 @@ if (!emergencyContactPhone.trim()) {
                   onChange={(event) =>
                     setBloodGroup(event.target.value)
                   }
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-100"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 outline-none transition-all duration-200 hover:border-slate-300 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-100"
                 >
                   <option value="">
                     Select blood group
@@ -721,19 +737,19 @@ if (!emergencyContactPhone.trim()) {
           </section>
 
           {/* Medical Information */}
-          <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+          <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md">
             <div className="border-b border-slate-100 bg-gradient-to-r from-rose-50/70 to-white px-6 py-5 sm:px-8">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-100 text-lg">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-100 text-lg shadow-sm transition-transform duration-200 hover:scale-105">
                   ❤️
                 </div>
 
                 <div>
-                  <h2 className="text-lg font-bold text-slate-900">
+                  <h2 className="text-lg font-bold tracking-tight text-slate-900">
                     Medical Information
                   </h2>
 
-                  <p className="text-sm text-slate-500">
+                  <p className="text-sm leading-6 text-slate-500">
                     Add important medical information for doctors.
                   </p>
                 </div>
@@ -760,7 +776,7 @@ if (!emergencyContactPhone.trim()) {
                   }
                   placeholder="e.g. Diabetes, hypertension, asthma"
                   rows={4}
-                  className="w-full resize-none rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-100"
+                  className="w-full resize-none rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 outline-none transition-all duration-200 placeholder:text-slate-400 hover:border-slate-300 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-100"
                 />
               </div>
 
@@ -780,7 +796,7 @@ if (!emergencyContactPhone.trim()) {
                   }
                   placeholder="e.g. Penicillin, peanuts, dust"
                   rows={4}
-                  className="w-full resize-none rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-100"
+                  className="w-full resize-none rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 outline-none transition-all duration-200 placeholder:text-slate-400 hover:border-slate-300 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-100"
                 />
               </div>
 
@@ -802,26 +818,26 @@ if (!emergencyContactPhone.trim()) {
                   }
                   placeholder="List the medicines you currently take"
                   rows={4}
-                  className="w-full resize-none rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-100"
+                  className="w-full resize-none rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 outline-none transition-all duration-200 placeholder:text-slate-400 hover:border-slate-300 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-100"
                 />
               </div>
             </div>
           </section>
 
           {/* Insurance Information */}
-          <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+          <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md">
             <div className="border-b border-slate-100 bg-gradient-to-r from-violet-50/70 to-white px-6 py-5 sm:px-8">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-100 text-lg">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-100 text-lg shadow-sm transition-transform duration-200 hover:scale-105">
                   🛡️
                 </div>
 
                 <div>
-                  <h2 className="text-lg font-bold text-slate-900">
+                  <h2 className="text-lg font-bold tracking-tight text-slate-900">
                     Insurance Information
                   </h2>
 
-                  <p className="text-sm text-slate-500">
+                  <p className="text-sm leading-6 text-slate-500">
                     Add your health insurance details.
                   </p>
                 </div>
@@ -848,7 +864,7 @@ if (!emergencyContactPhone.trim()) {
                     )
                   }
                   placeholder="Enter insurance provider"
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-100"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 outline-none transition-all duration-200 placeholder:text-slate-400 hover:border-slate-300 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-100"
                 />
               </div>
 
@@ -870,7 +886,7 @@ if (!emergencyContactPhone.trim()) {
                     )
                   }
                   placeholder="Enter policy number"
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-100"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 outline-none transition-all duration-200 placeholder:text-slate-400 hover:border-slate-300 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-100"
                 />
               </div>
 
@@ -890,7 +906,7 @@ if (!emergencyContactPhone.trim()) {
                       event.target.value
                     )
                   }
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-100"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 outline-none transition-all duration-200 hover:border-slate-300 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-100"
                 >
                   <option value="">
                     Select status
@@ -910,19 +926,19 @@ if (!emergencyContactPhone.trim()) {
           </section>
 
           {/* Emergency Contact */}
-          <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+          <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md">
             <div className="border-b border-slate-100 bg-gradient-to-r from-amber-50/70 to-white px-6 py-5 sm:px-8">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 text-lg">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 text-lg shadow-sm transition-transform duration-200 hover:scale-105">
                   🚨
                 </div>
 
                 <div>
-                  <h2 className="text-lg font-bold text-slate-900">
+                  <h2 className="text-lg font-bold tracking-tight text-slate-900">
                     Emergency Contact
                   </h2>
 
-                  <p className="text-sm text-slate-500">
+                  <p className="text-sm leading-6 text-slate-500">
                     Someone we can contact in case of an emergency.
                   </p>
                 </div>
@@ -949,7 +965,7 @@ if (!emergencyContactPhone.trim()) {
                     )
                   }
                   placeholder="Enter contact name"
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-100"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 outline-none transition-all duration-200 placeholder:text-slate-400 hover:border-slate-300 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-100"
                 />
               </div>
 
@@ -971,7 +987,7 @@ if (!emergencyContactPhone.trim()) {
                     )
                   }
                   placeholder="e.g. Father, Mother, Spouse"
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-100"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 outline-none transition-all duration-200 placeholder:text-slate-400 hover:border-slate-300 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-100"
                 />
               </div>
 
@@ -993,14 +1009,14 @@ if (!emergencyContactPhone.trim()) {
                     )
                   }
                   placeholder="Enter phone number"
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-100"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm text-slate-900 outline-none transition-all duration-200 placeholder:text-slate-400 hover:border-slate-300 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-100"
                 />
               </div>
             </div>
           </section>
 
           {/* Save Changes */}
-          <section className="overflow-hidden rounded-3xl border border-emerald-100 bg-white shadow-sm">
+          <section className="overflow-hidden rounded-2xl border border-emerald-100 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md">
             <div className="flex flex-col gap-5 bg-gradient-to-r from-emerald-50 to-white p-6 sm:flex-row sm:items-center sm:justify-between sm:p-8">
 
               <div className="flex items-start gap-4">
@@ -1019,7 +1035,7 @@ if (!emergencyContactPhone.trim()) {
 
                   {successMessage && (
                     <div
-                      className={`mt-3 rounded-lg px-3 py-2 text-sm font-semibold ${
+                      className={`mt-3 rounded-xl border px-3 py-2 text-sm font-semibold shadow-sm transition-all duration-200 ${
                         successMessage.startsWith(
                           "Profile saved"
                         )
@@ -1037,7 +1053,7 @@ if (!emergencyContactPhone.trim()) {
                 type="button"
                 onClick={handleSaveProfile}
                 disabled={isSaving}
-                className="w-full rounded-xl bg-emerald-600 px-7 py-3.5 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-700 hover:shadow-md focus:outline-none focus:ring-4 focus:ring-emerald-200 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                className="w-full rounded-xl bg-emerald-600 px-7 py-3.5 text-sm font-bold text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-emerald-700 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
               >
                 {isSaving
                   ? "Saving..."

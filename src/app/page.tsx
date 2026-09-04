@@ -29,28 +29,6 @@ export default function Home() {
 
       {/* Main Content */}
       <div className="relative mx-auto flex min-h-screen max-w-6xl flex-col px-6 py-10 sm:px-8">
-        {/* Logo */}
-        <header className="flex justify-center">
-          <Link
-            href="/"
-            className="flex items-center gap-3"
-          >
-            <div className="grid size-14 place-items-center rounded-2xl bg-emerald-600 text-2xl font-bold text-white shadow-lg shadow-emerald-900/10">
-              S
-            </div>
-
-            <div className="text-left">
-              <p className="text-2xl font-bold tracking-tight">
-                Schedula
-              </p>
-
-              <p className="text-sm text-slate-500">
-                Healthcare made simple
-              </p>
-            </div>
-          </Link>
-        </header>
-
         {/* Hero */}
         <section className="flex flex-1 flex-col items-center justify-center py-12 text-center">
           {/* Badge */}

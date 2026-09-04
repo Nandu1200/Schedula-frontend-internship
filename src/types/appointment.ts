@@ -26,4 +26,9 @@ review?: {
   rating: number;
   comment: string;
 };
+  followUp?: {
+    recommended: boolean;
+    afterDays?: number;
+    note?: string;
+  };
 };
