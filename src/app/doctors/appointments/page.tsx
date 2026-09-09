@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+import { useAppointmentStore } from "@/store/appointmentStore";
+
 import { addNotification } from "@/lib/utils/notifications";
 
 import type { Appointment } from "@/types/appointment";
@@ -116,7 +118,17 @@ const createStartsAt = (date: string, time: string) => {
 };
 
 export default function DoctorAppointmentsPage() {
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const appointments = useAppointmentStore((state) => state.appointments);
+
+  const setStoreAppointments = useAppointmentStore(
+    (state) => state.setAppointments
+  );
+
+  const updateStoreAppointment = useAppointmentStore(
+    (state) => state.updateAppointment
+  );
+
+  const [doctorName, setDoctorName] = useState("");
 
   const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState("");
@@ -164,8 +176,9 @@ export default function DoctorAppointmentsPage() {
       const storedAppointments =
         localStorage.getItem("appointments");
 
-      if (!storedDoctor || !storedAppointments) {
-        setAppointments([]);
+      if (!storedDoctor) {
+        setStoreAppointments([]);
+        setDoctorName("");
         setLoading(false);
         return;
       }
@@ -174,35 +187,46 @@ export default function DoctorAppointmentsPage() {
         const doctor =
           JSON.parse(storedDoctor) as LoggedInDoctor;
 
-        const allAppointments =
-          JSON.parse(storedAppointments) as Appointment[];
+        setDoctorName(doctor.name);
 
-        const doctorAppointments = allAppointments.filter(
-          (appointment) =>
-            appointment.clinician.trim().toLowerCase() ===
-            doctor.name.trim().toLowerCase()
-        );
+        if (storedAppointments) {
+          const allAppointments =
+            JSON.parse(storedAppointments) as Appointment[];
 
-        doctorAppointments.sort(
-          (first, second) =>
-            new Date(first.startsAt).getTime() -
-            new Date(second.startsAt).getTime()
-        );
-
-        setAppointments(doctorAppointments);
+          setStoreAppointments(allAppointments);
+        }
       } catch {
-        setAppointments([]);
+        setStoreAppointments([]);
+        setDoctorName("");
       }
 
       setLoading(false);
     };
-
     const timer = window.setTimeout(loadAppointments, 0);
 
     return () => {
       window.clearTimeout(timer);
     };
-  }, []);
+  }, [setStoreAppointments]);
+
+  const doctorAppointments = useMemo(() => {
+    const normalizedDoctorName =
+      doctorName.trim().toLowerCase();
+
+    const filtered = normalizedDoctorName
+      ? appointments.filter(
+          (appointment) =>
+            appointment.clinician.trim().toLowerCase() ===
+            normalizedDoctorName
+        )
+      : [];
+
+    return [...filtered].sort(
+      (first, second) =>
+        new Date(first.startsAt).getTime() -
+        new Date(second.startsAt).getTime()
+    );
+  }, [appointments, doctorName]);
 
   /*
    * Keep current time updated.
@@ -231,7 +255,7 @@ export default function DoctorAppointmentsPage() {
     const normalizedSearch =
       searchTerm.trim().toLowerCase();
 
-    return appointments.filter((appointment) => {
+    return doctorAppointments.filter((appointment) => {
       const category = getAppointmentCategory(
         appointment,
         currentTime
@@ -275,20 +299,20 @@ export default function DoctorAppointmentsPage() {
 
       return true;
     });
-  }, [
-    appointments,
-    activeFilter,
-    searchTerm,
-    selectedDate,
-    currentTime,
-  ]);
+ }, [
+  doctorAppointments,
+  activeFilter,
+  searchTerm,
+  selectedDate,
+  currentTime,
+]);
 
   /*
    * Appointment counts.
    */
   const appointmentCounts = useMemo(() => {
     const counts: Record<AppointmentFilter, number> = {
-      all: appointments.length,
+      all: doctorAppointments.length,
       pending: 0,
       confirmed: 0,
       upcoming: 0,
@@ -297,7 +321,7 @@ export default function DoctorAppointmentsPage() {
       missed: 0,
     };
 
-    appointments.forEach((appointment) => {
+    doctorAppointments.forEach((appointment) => {
       const category = getAppointmentCategory(
         appointment,
         currentTime
@@ -309,7 +333,7 @@ export default function DoctorAppointmentsPage() {
     });
 
     return counts;
-  }, [appointments, currentTime]);
+  }, [doctorAppointments, currentTime]);
 
   /*
    * Load doctor's availability slots.
@@ -435,19 +459,13 @@ export default function DoctorAppointmentsPage() {
     setError("");
 
     try {
-      const storedAppointments =
-        localStorage.getItem("appointments");
+      const allAppointments = appointments;
 
-      if (!storedAppointments) {
+      if (allAppointments.length === 0) {
         throw new Error(
           "Appointments not found."
         );
       }
-
-      const allAppointments =
-        JSON.parse(
-          storedAppointments
-        ) as Appointment[];
 
       const storedDoctor =
         localStorage.getItem("loggedInDoctor") ||
@@ -572,6 +590,8 @@ export default function DoctorAppointmentsPage() {
         JSON.stringify(updatedAppointments)
       );
 
+      setStoreAppointments(updatedAppointments)
+
       localStorage.setItem(
         storageKey,
         JSON.stringify(updatedSlots)
@@ -599,28 +619,9 @@ export default function DoctorAppointmentsPage() {
       }
 
       /*
-       * Update appointment list.
+       * Update appointment list in Zustand.
        */
-      const updatedDoctorAppointments =
-        updatedAppointments.filter(
-          (appointment) =>
-            appointment.clinician
-              .trim()
-              .toLowerCase() ===
-            doctor.name
-              .trim()
-              .toLowerCase()
-        );
-
-      updatedDoctorAppointments.sort(
-        (first, second) =>
-          new Date(first.startsAt).getTime() -
-          new Date(second.startsAt).getTime()
-      );
-
-      setAppointments(
-        updatedDoctorAppointments
-      );
+      setStoreAppointments(updatedAppointments);
 
       setSelectedAppointment(null);
 
@@ -681,19 +682,13 @@ export default function DoctorAppointmentsPage() {
     setError("");
 
     try {
-      const storedAppointments =
-        localStorage.getItem("appointments");
+      const allAppointments = appointments;
 
-      if (!storedAppointments) {
+      if (allAppointments.length === 0) {
         throw new Error(
           "Appointments not found."
         );
       }
-
-      const allAppointments =
-        JSON.parse(
-          storedAppointments
-        ) as Appointment[];
 
       const updatedAppointments =
   allAppointments.map((item) =>
@@ -733,6 +728,8 @@ export default function DoctorAppointmentsPage() {
         JSON.stringify(updatedAppointments)
       );
 
+      setStoreAppointments(updatedAppointments)
+
       if (status === "cancelled" && appointment.patient.id) {
   addNotification({
     id: `notification-${Date.now()}`,
@@ -758,25 +755,14 @@ export default function DoctorAppointmentsPage() {
   });
 }
 
-     setAppointments((current) =>
-  current.map((item) =>
-    item.id === appointment.id
-      ? updatedAppointments.find(
-          (updatedItem) =>
-            updatedItem.id === appointment.id
-        ) ?? item
-      : item
-  )
-);
+      const updatedStatusAppointment =
+        updatedAppointments.find(
+          (item) => item.id === appointment.id
+        );
 
-      setSelectedAppointment((current) =>
-        current?.id === appointment.id
-          ? {
-              ...current,
-              status,
-            }
-          : current
-      );
+      if (updatedStatusAppointment) {
+        setSelectedAppointment(updatedStatusAppointment);
+      }
 
       /*
        * Cancelled appointment:
@@ -883,15 +869,11 @@ export default function DoctorAppointmentsPage() {
     if (!followUpAppointment) return;
 
     try {
-      const storedAppointments =
-        localStorage.getItem("appointments");
+      const allAppointments = appointments;
 
-      if (!storedAppointments) {
+      if (allAppointments.length === 0) {
         throw new Error("Appointments not found.");
       }
-
-      const allAppointments =
-        JSON.parse(storedAppointments) as Appointment[];
 
       const afterDays = Number(followUpDays);
 
@@ -925,13 +907,7 @@ export default function DoctorAppointmentsPage() {
         JSON.stringify(updatedAppointments)
       );
 
-      setAppointments((currentAppointments) =>
-        currentAppointments.map((appointment) =>
-          appointment.id === updatedAppointment.id
-            ? updatedAppointment
-            : appointment
-        )
-      );
+      setStoreAppointments(updatedAppointments);
 
       window.dispatchEvent(
         new Event("appointments-updated")
@@ -1904,13 +1880,10 @@ export default function DoctorAppointmentsPage() {
     onSaved={(updatedAppointment) => {
       setSelectedAppointment(updatedAppointment);
 
-      setAppointments((currentAppointments) =>
-  currentAppointments.map((appointment) =>
-    appointment.id === updatedAppointment.id
-      ? updatedAppointment
-      : appointment
-  )
-);
+      updateStoreAppointment(
+        updatedAppointment.id,
+        updatedAppointment
+      );
     }}
   />
 )}

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { Appointment } from "@/types/appointment";
+import { useAppointmentStore } from "@/store/appointmentStore";
 import PrescriptionForm from "../appointments/PrescriptionForm";
 
 type LoggedInDoctor = {
@@ -13,8 +14,13 @@ export default function DoctorPrescriptionsPage() {
   const [doctor, setDoctor] =
     useState<LoggedInDoctor | null>(null);
 
-  const [appointments, setAppointments] =
-    useState<Appointment[]>([]);
+  const appointments = useAppointmentStore(
+    (state) => state.appointments,
+  );
+
+  const setAppointments = useAppointmentStore(
+    (state) => state.setAppointments,
+  );
 
   const [selectedPrescription, setSelectedPrescription] =
     useState<Appointment | null>(null);
@@ -23,49 +29,62 @@ export default function DoctorPrescriptionsPage() {
     useState(false);
 
   useEffect(() => {
-  const timer = window.setTimeout(() => {
-    const storedDoctor =
-      localStorage.getItem("loggedInDoctor") ||
-      localStorage.getItem("registeredDoctor");
+    const timer = window.setTimeout(() => {
+      try {
+        const storedDoctor =
+          localStorage.getItem("loggedInDoctor") ||
+          localStorage.getItem("registeredDoctor");
 
-    if (!storedDoctor) {
-      return;
-    }
+        if (!storedDoctor) {
+          setDoctor(null);
+          return;
+        }
 
-    try {
-      const parsedDoctor =
-        JSON.parse(storedDoctor) as LoggedInDoctor;
+        const parsedDoctor =
+          JSON.parse(storedDoctor) as LoggedInDoctor;
 
-      setDoctor(parsedDoctor);
+        setDoctor(parsedDoctor);
 
-      const storedAppointments =
-        localStorage.getItem("appointments");
+        const storedAppointments =
+          localStorage.getItem("appointments");
 
-      if (!storedAppointments) {
-        return;
+        if (storedAppointments) {
+          const allAppointments =
+            JSON.parse(
+              storedAppointments,
+            ) as Appointment[];
+
+          setAppointments(allAppointments);
+          return;
+        }
+      } catch {
+        setDoctor(null);
       }
 
-      const allAppointments =
-        JSON.parse(storedAppointments) as Appointment[];
+      fetch("/api/appointments")
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error(
+              "Failed to load appointments",
+            );
+          }
 
-      const doctorAppointments =
-        allAppointments.filter(
-          (appointment) =>
-            appointment.clinician.trim().toLowerCase() ===
-            parsedDoctor.name.trim().toLowerCase()
-        );
+          return response.json() as Promise<{
+            data: Appointment[];
+          }>;
+        })
+        .then(({ data }) => {
+          setAppointments(data);
+        })
+        .catch(() => {
+          setAppointments([]);
+        });
+    }, 0);
 
-      setAppointments(doctorAppointments);
-    } catch {
-      setDoctor(null);
-      setAppointments([]);
-    }
-  }, 0);
-
-  return () => {
-    window.clearTimeout(timer);
-  };
-}, []);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [setAppointments]);
 
   const prescriptionAppointments = appointments.filter(
     (appointment) =>
@@ -87,16 +106,8 @@ export default function DoctorPrescriptionsPage() {
   };
 
   const handlePrescriptionSaved = (
-    updatedAppointment: Appointment
+    updatedAppointment: Appointment,
   ) => {
-    setAppointments((currentAppointments) =>
-      currentAppointments.map((appointment) =>
-        appointment.id === updatedAppointment.id
-          ? updatedAppointment
-          : appointment
-      )
-    );
-
     setSelectedPrescription(updatedAppointment);
     setEditingPrescription(false);
   };

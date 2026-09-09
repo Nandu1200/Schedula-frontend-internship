@@ -4,11 +4,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import SchedulaAICareAssistant from "@/components/ai/SchedulaAICareAssistant";
 import {
+  useEffect,
   useMemo,
   useState,
   useSyncExternalStore,
 } from "react";
 import type { Appointment } from "@/types/appointment";
+import { useAppointmentStore } from "@/store/appointmentStore";
 import {
   getNotifications,
   getUnreadNotificationCount,
@@ -25,18 +27,13 @@ type LoggedInPatient = {
   age: number;
 };
 
-const APPOINTMENTS_STORAGE_KEY = "appointments";
 const PATIENT_STORAGE_KEY = "loggedInPatient";
 
-const EMPTY_APPOINTMENTS: Appointment[] = [];
 const EMPTY_NOTIFICATIONS: Notification[] = [];
 
 let patientSnapshot: LoggedInPatient | null = null;
 let patientSnapshotInitialized = false;
 
-let appointmentsSnapshot: Appointment[] =
-  EMPTY_APPOINTMENTS;
-let appointmentsSnapshotInitialized = false;
 
 let notificationsSnapshot: Notification[] =
   EMPTY_NOTIFICATIONS;
@@ -63,34 +60,6 @@ const getStoredPatient = (): LoggedInPatient | null => {
     ) as LoggedInPatient;
   } catch {
     return null;
-  }
-};
-
-/* -------------------- Appointment Storage -------------------- */
-
-const getStoredAppointments = (): Appointment[] => {
-  if (typeof window === "undefined") {
-    return EMPTY_APPOINTMENTS;
-  }
-
-  const storedAppointments = localStorage.getItem(
-    APPOINTMENTS_STORAGE_KEY
-  );
-
-  if (!storedAppointments) {
-    return EMPTY_APPOINTMENTS;
-  }
-
-  try {
-    const parsedAppointments = JSON.parse(
-      storedAppointments
-    ) as Appointment[];
-
-    return Array.isArray(parsedAppointments)
-      ? parsedAppointments
-      : EMPTY_APPOINTMENTS;
-  } catch {
-    return EMPTY_APPOINTMENTS;
   }
 };
 
@@ -170,85 +139,6 @@ const getPatientSnapshot = () => {
 
 const getPatientServerSnapshot = () => {
   return null;
-};
-
-/* -------------------- Appointment Subscription -------------------- */
-
-const subscribeToAppointments = (
-  callback: () => void
-) => {
-  if (typeof window === "undefined") {
-    return () => {};
-  }
-
-  const syncAppointments = () => {
-    const nextAppointments =
-      getStoredAppointments();
-
-    const previousAppointments =
-      JSON.stringify(
-        appointmentsSnapshot
-      );
-
-    const nextAppointmentsString =
-      JSON.stringify(
-        nextAppointments
-      );
-
-    if (
-      !appointmentsSnapshotInitialized ||
-      previousAppointments !==
-        nextAppointmentsString
-    ) {
-      appointmentsSnapshot =
-        nextAppointments;
-
-      appointmentsSnapshotInitialized =
-        true;
-
-      callback();
-    }
-  };
-
-  window.addEventListener(
-    "storage",
-    syncAppointments
-  );
-
-  window.addEventListener(
-    "appointments-updated",
-    syncAppointments
-  );
-
-  syncAppointments();
-
-  return () => {
-    window.removeEventListener(
-      "storage",
-      syncAppointments
-    );
-
-    window.removeEventListener(
-      "appointments-updated",
-      syncAppointments
-    );
-  };
-};
-
-const getAppointmentsSnapshot = () => {
-  if (!appointmentsSnapshotInitialized) {
-    appointmentsSnapshot =
-      getStoredAppointments();
-
-    appointmentsSnapshotInitialized =
-      true;
-  }
-
-  return appointmentsSnapshot;
-};
-
-const getAppointmentsServerSnapshot = () => {
-  return EMPTY_APPOINTMENTS;
 };
 
 /* -------------------- Notification Subscription -------------------- */
@@ -340,12 +230,37 @@ export default function PatientDashboardPage() {
     getPatientServerSnapshot
   );
 
-  const appointments =
-    useSyncExternalStore(
-      subscribeToAppointments,
-      getAppointmentsSnapshot,
-      getAppointmentsServerSnapshot
-    );
+  const appointments = useAppointmentStore(
+    (state) => state.appointments
+  );
+
+  const setAppointments = useAppointmentStore(
+    (state) => state.setAppointments
+  );
+
+  useEffect(() => {
+    if (appointments.length > 0) {
+      return;
+    }
+
+    try {
+      const storedAppointments =
+        localStorage.getItem("appointments");
+
+      if (!storedAppointments) {
+        return;
+      }
+
+      const parsedAppointments =
+        JSON.parse(storedAppointments) as Appointment[];
+
+      if (Array.isArray(parsedAppointments)) {
+        setAppointments(parsedAppointments);
+      }
+    } catch {
+      // Ignore invalid localStorage data.
+    }
+  }, [appointments.length, setAppointments]);
 
   const notifications =
     useSyncExternalStore(

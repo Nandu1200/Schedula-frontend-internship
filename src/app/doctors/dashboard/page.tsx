@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Appointment } from "@/types/appointment";
+import { useAppointmentStore } from "@/store/appointmentStore";
 
 import {
   getNotifications,
@@ -63,8 +64,13 @@ export default function DoctorDashboardPage() {
   const [selectedAppointment, setSelectedAppointment] =
     useState<Appointment | null>(null);
 
-  const [appointments, setAppointments] =
-    useState<Appointment[]>([]);
+  const appointments = useAppointmentStore(
+    (state) => state.appointments,
+  );
+
+  const setAppointments = useAppointmentStore(
+    (state) => state.setAppointments,
+  );
 
     const [notifications, setNotifications] =
   useState<Notification[]>([]);
@@ -130,7 +136,7 @@ const [notificationOpen, setNotificationOpen] =
         if (storedAppointments) {
           const parsedAppointments =
             JSON.parse(
-              storedAppointments
+              storedAppointments,
             ) as Appointment[];
 
           setAppointments(parsedAppointments);
@@ -145,7 +151,7 @@ const [notificationOpen, setNotificationOpen] =
         .then((response) => {
           if (!response.ok) {
             throw new Error(
-              "Failed to load appointments"
+              "Failed to load appointments",
             );
           }
 
@@ -166,15 +172,15 @@ const [notificationOpen, setNotificationOpen] =
     const timer =
       window.setTimeout(
         loadAppointments,
-        0
+        0,
       );
 
     return () => {
       window.clearTimeout(timer);
     };
-  }, []);
+  }, [setAppointments]);
 
-    // Load doctor notifications
+  // Load doctor notifications
   useEffect(() => {
     const loadNotifications = () => {
       setNotifications(getNotifications());

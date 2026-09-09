@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useState } from "react";
+import { useAppointmentStore } from "@/store/appointmentStore";
 
 type StoredPatient = {
   name?: string;
@@ -30,45 +31,21 @@ type StoredAppointment = {
   prescription?: unknown;
 };
 
-const getAppointmentStats = () => {
-  if (typeof window === "undefined") {
-    return {
-      totalPrescriptions: 0,
-      completedAppointments: 0,
-    };
-  }
-
-  const storedAppointments =
-    localStorage.getItem("appointments");
-
-  const storedPatient =
-    localStorage.getItem("loggedInPatient");
-
-  if (!storedAppointments) {
-    return {
-      totalPrescriptions: 0,
-      completedAppointments: 0,
-    };
-  }
-
+const getAppointmentStats = (
+  appointments: StoredAppointment[],
+  patient: StoredPatient
+) => {
   try {
-    const appointments =
-      JSON.parse(storedAppointments) as StoredAppointment[];
-
-    const patient = storedPatient
-      ? (JSON.parse(storedPatient) as StoredPatient)
-      : {};
-
     const loggedInPatientName =
       patient.name?.trim().toLowerCase();
 
     const patientAppointments =
       loggedInPatientName
         ? appointments.filter(
-           (appointment) =>
-  appointment.patient?.name
-    ?.trim()
-    .toLowerCase() === loggedInPatientName
+            (appointment) =>
+              appointment.patient?.name
+                ?.trim()
+                .toLowerCase() === loggedInPatientName
           )
         : appointments;
 
@@ -121,22 +98,44 @@ const getStoredPatient = (): StoredPatient => {
 };
 
 export default function PatientProfilePage() {
- const storedPatient = getStoredPatient();
+  const storedPatient = getStoredPatient();
 
-const appointmentStatsData = useSyncExternalStore(
-  () => () => {},
-  () => JSON.stringify(getAppointmentStats()),
-  () =>
-    JSON.stringify({
-      totalPrescriptions: 0,
-      completedAppointments: 0,
-    })
-);
+  const appointments = useAppointmentStore(
+    (state) => state.appointments
+  );
 
-const appointmentStats = JSON.parse(appointmentStatsData) as {
-  totalPrescriptions: number;
-  completedAppointments: number;
-};
+  const setAppointments = useAppointmentStore(
+    (state) => state.setAppointments
+  );
+
+  useEffect(() => {
+    if (appointments.length > 0 || typeof window === "undefined") {
+      return;
+    }
+
+    const storedAppointments =
+      localStorage.getItem("appointments");
+
+    if (!storedAppointments) {
+      return;
+    }
+
+    try {
+      const parsedAppointments =
+        JSON.parse(storedAppointments) as StoredAppointment[];
+
+      setAppointments(
+        parsedAppointments as import("@/types/appointment").Appointment[]
+      );
+    } catch {
+      // Ignore invalid localStorage appointment data.
+    }
+  }, [appointments.length, setAppointments]);
+
+  const appointmentStats = getAppointmentStats(
+    appointments,
+    storedPatient
+  );
 
   const [name, setName] = useState(
     storedPatient.name ?? ""

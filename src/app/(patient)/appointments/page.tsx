@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import jsPDF from "jspdf";
 import { addNotification } from "@/lib/utils/notifications";
+import { useAppointmentStore } from "@/store/appointmentStore";
 import type { Appointment } from "@/types/appointment";
 import type { AvailabilitySlot } from "@/types/availability";
 
@@ -76,8 +77,18 @@ const getAppointmentType = (
 
 export default function PatientAppointmentsPage() {
   const router = useRouter();
-  const [appointments, setAppointments] =
-    useState<Appointment[]>([]);
+
+  const appointments = useAppointmentStore(
+    (state) => state.appointments
+  );
+
+  const setAppointments = useAppointmentStore(
+    (state) => state.setAppointments
+  );
+
+  const updateAppointment = useAppointmentStore(
+    (state) => state.updateAppointment
+  );
 
   const [loading, setLoading] =
     useState(true);
@@ -101,6 +112,21 @@ const [reviewComment, setReviewComment] =
 
   const [prescriptionAppointment, setPrescriptionAppointment] =
   useState<Appointment | null>(null);
+
+  const [rescheduleAppointment, setRescheduleAppointment] =
+  useState<Appointment | null>(null);
+
+  const [availableSlots, setAvailableSlots] =
+  useState<AvailabilitySlot[]>([]);
+
+  const [selectedSlotId, setSelectedSlotId] =
+  useState("");
+
+  const [rescheduleError, setRescheduleError] =
+  useState("");
+
+  const [rescheduling, setRescheduling] =
+  useState(false);
 
   useEffect(() => {
     const loadAppointments = () => {
@@ -156,9 +182,7 @@ const [reviewComment, setReviewComment] =
             ).getTime()
         );
 
-        setAppointments(
-          patientAppointments
-        );
+        setAppointments(patientAppointments);
       } catch {
         setAppointments([]);
       }
@@ -175,7 +199,7 @@ const [reviewComment, setReviewComment] =
     return () => {
       window.clearTimeout(timer);
     };
-  }, []);
+  }, [setAppointments]);
 
   const tabCounts = useMemo(() => {
     return {
@@ -250,6 +274,252 @@ const [reviewComment, setReviewComment] =
       appointments,
     ]);
 
+  const handleOpenReschedule = (
+    appointment: Appointment
+  ) => {
+const appointmentIdParts =
+  appointment.id.split("-");
+
+const slotIndex =
+  appointmentIdParts.indexOf("slot");
+
+if (
+  slotIndex === -1 ||
+  appointmentIdParts.length < 3
+) {
+  setError(
+    "Unable to reschedule this appointment because the doctor information could not be found."
+  );
+  return;
+}
+
+const doctorId =
+  appointmentIdParts
+    .slice(1, slotIndex)
+    .join("-");
+
+if (!doctorId) {
+  setError(
+    "Unable to reschedule this appointment because the doctor information could not be found."
+  );
+  return;
+}
+
+    if (!doctorId) {
+      setError(
+        "Unable to reschedule this appointment because the doctor information could not be found."
+      );
+      return;
+    }
+
+    const storageKey =
+      `availabilitySlots-${doctorId}`;
+
+    const storedSlots =
+      localStorage.getItem(storageKey);
+
+    if (!storedSlots) {
+      setRescheduleError(
+        "No availability slots were found for this doctor."
+      );
+      return;
+    }
+
+    try {
+      const doctorSlots =
+        JSON.parse(
+          storedSlots
+        ) as AvailabilitySlot[];
+
+      const slots =
+        doctorSlots.filter(
+          (slot) =>
+            slot.status === "available"
+        );
+
+      setAvailableSlots(slots);
+      setSelectedSlotId("");
+      setRescheduleError("");
+      setRescheduleAppointment(appointment);
+    } catch {
+      setRescheduleError(
+        "Unable to load available slots. Please try again."
+      );
+    }
+  };
+
+  const handleReschedule = () => {
+    if (!rescheduleAppointment || !selectedSlotId) {
+      return;
+    }
+
+    setRescheduling(true);
+    setRescheduleError("");
+
+    try {
+      const appointmentIdParts =
+        rescheduleAppointment.id.split("-");
+
+      const slotIndex =
+        appointmentIdParts.indexOf(
+          "slot"
+        );
+
+      if (
+        slotIndex === -1 ||
+        appointmentIdParts.length < 3
+      ) {
+        throw new Error(
+          "Doctor information could not be found."
+        );
+      }
+
+      const doctorId =
+        appointmentIdParts
+          .slice(1, slotIndex)
+          .join("-");
+
+      if (!doctorId) {
+        throw new Error(
+          "Doctor information could not be found."
+        );
+      }
+
+      const oldSlotId =
+        appointmentIdParts
+          .slice(slotIndex)
+          .join("-");
+
+      const storageKey =
+        `availabilitySlots-${doctorId}`;
+
+      const storedSlots =
+        localStorage.getItem(storageKey);
+
+      if (!storedSlots) {
+        throw new Error(
+          "Doctor availability could not be found."
+        );
+      }
+
+      const doctorSlots =
+        JSON.parse(
+          storedSlots
+        ) as AvailabilitySlot[];
+
+      const selectedSlot =
+        doctorSlots.find(
+          (slot) =>
+            slot.id === selectedSlotId
+        );
+
+      if (!selectedSlot) {
+        throw new Error(
+          "The selected slot could not be found."
+        );
+      }
+
+      if (selectedSlot.status !== "available") {
+        throw new Error(
+          "The selected slot is no longer available."
+        );
+      }
+
+      const newStartsAt =
+        new Date(
+          `${selectedSlot.date}T${selectedSlot.startTime}`
+        ).toISOString();
+
+      const storedAppointments =
+        localStorage.getItem(
+          "appointments"
+        );
+
+      if (!storedAppointments) {
+        throw new Error(
+          "Appointments could not be found."
+        );
+      }
+
+      const allAppointments =
+        JSON.parse(
+          storedAppointments
+        ) as Appointment[];
+
+      const updatedAppointments =
+        allAppointments.map(
+          (item) =>
+            item.id ===
+            rescheduleAppointment.id
+              ? {
+                  ...item,
+                  startsAt: newStartsAt,
+                }
+              : item
+        );
+
+      const updatedSlots =
+        doctorSlots.map(
+          (slot) =>
+            slot.id === oldSlotId
+              ? {
+                  ...slot,
+                  status: "available" as const,
+                }
+              : slot.id === selectedSlotId
+                ? {
+                    ...slot,
+                    status: "booked" as const,
+                  }
+                : slot
+        );
+
+      localStorage.setItem(
+        "appointments",
+        JSON.stringify(updatedAppointments)
+      );
+
+      localStorage.setItem(
+        storageKey,
+        JSON.stringify(updatedSlots)
+      );
+
+      addNotification({
+        id: `notification-${Date.now()}-reschedule`,
+        userId: doctorId,
+        type: "reschedule",
+        title: "Appointment Rescheduled",
+        message: `${rescheduleAppointment.patient.name} has rescheduled the appointment with you to ${formatDateTime(newStartsAt)}.`,
+        appointmentId: rescheduleAppointment.id,
+        createdAt: new Date().toISOString(),
+        read: false,
+      });
+
+      updateAppointment(
+        rescheduleAppointment.id,
+        {
+          startsAt: newStartsAt,
+        }
+      );
+
+      setRescheduleAppointment(null);
+      setAvailableSlots([]);
+      setSelectedSlotId("");
+      setRescheduleError("");
+      window.alert(
+        "Appointment rescheduled successfully."
+      );
+    } catch (error) {
+      setRescheduleError(
+        error instanceof Error
+          ? error.message
+          : "Unable to reschedule the appointment. Please try again."
+      );
+    } finally {
+      setRescheduling(false);
+    }
+  };
+
   const handleCancelAppointment = (
     appointment: Appointment
   ) => {
@@ -320,35 +590,26 @@ const [reviewComment, setReviewComment] =
        *
        * appointment-doctorId-slotId
        */
-      const appointmentIdParts =
-        appointment.id.split("-");
+ const appointmentIdParts =
+  appointment.id.split("-");
 
-      const slotIndex =
-        appointmentIdParts.indexOf(
-          "slot"
-        );
+const slotIndex =
+  appointmentIdParts.indexOf("slot");
 
-      const doctorIndex =
-        appointmentIdParts.indexOf(
-          "doctor"
-        );
+if (
+  slotIndex !== -1 &&
+  appointmentIdParts.length >= 3
+) {
+  const doctorId =
+    appointmentIdParts
+      .slice(1, slotIndex)
+      .join("-");
 
-      if (
-        doctorIndex !== -1 &&
-        slotIndex !== -1
-      ) {
-        const doctorId =
-          appointmentIdParts
-            .slice(
-              doctorIndex,
-              slotIndex
-            )
-            .join("-");
-
-        const slotId =
-          appointmentIdParts
-            .slice(slotIndex)
-            .join("-");
+  if (!doctorId) {
+    throw new Error(
+      "Doctor information could not be found."
+    );
+  }
 
         /*
          * Get doctor's availability slots.
@@ -368,19 +629,33 @@ const [reviewComment, setReviewComment] =
             ) as AvailabilitySlot[];
 
           /*
-           * Make the cancelled slot
-           * available again.
+           * Find the slot using the appointment's
+           * current date and time.
+           *
+           * This is important because after rescheduling,
+           * the appointment ID still contains the old slot ID.
            */
+          const appointmentStart =
+            new Date(
+              appointment.startsAt
+            ).getTime();
+
           const updatedSlots =
             doctorSlots.map(
-              (slot) =>
-                slot.id === slotId
+              (slot) => {
+                const slotStart =
+                  new Date(
+                    `${slot.date}T${slot.startTime}`
+                  ).getTime();
+
+                return slotStart === appointmentStart
                   ? {
                       ...slot,
                       status:
                         "available" as const,
                     }
-                  : slot
+                  : slot;
+              }
             );
 
           localStorage.setItem(
@@ -390,24 +665,30 @@ const [reviewComment, setReviewComment] =
             )
           );
         }
+
+        /*
+         * Notify the doctor about the cancellation.
+         */
+        addNotification({
+          id: `notification-${Date.now()}-cancellation`,
+          userId: doctorId,
+          type: "cancellation",
+          title: "Appointment Cancelled",
+          message: `${appointment.patient.name} has cancelled the appointment with you.`,
+          appointmentId: appointment.id,
+          createdAt: new Date().toISOString(),
+          read: false,
+        });
       }
 
       /*
        * Update the UI immediately.
        */
-      setAppointments(
-        (current) =>
-          current.map(
-            (item) =>
-              item.id ===
-              appointment.id
-                ? {
-                    ...item,
-                    status:
-                      "cancelled" as const,
-                  }
-                : item
-          )
+      updateAppointment(
+        appointment.id,
+        {
+          status: "cancelled",
+        }
       );
     } catch {
       setError(
@@ -934,6 +1215,18 @@ if (storedPatient) {
                       <button
                         type="button"
                         onClick={() =>
+                          handleOpenReschedule(
+                            appointment
+                          )
+                        }
+                        className="rounded-lg border border-emerald-300 px-4 py-2 text-sm font-semibold text-emerald-600 transition-all duration-200 hover:-translate-y-0.5 hover:bg-emerald-50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+                      >
+                        Reschedule
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
                           handleCancelAppointment(
                             appointment
                           )
@@ -1348,6 +1641,142 @@ if (storedPatient) {
     </div>
   </div>
 )}
+
+        {rescheduleAppointment && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 px-4 py-6 backdrop-blur-sm">
+            <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl border border-slate-200 bg-white shadow-2xl">
+
+              {/* Modal Header */}
+              <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-emerald-600">
+                    Reschedule Appointment
+                  </p>
+
+                  <h2 className="mt-1 text-xl font-bold text-slate-900">
+                    Choose a New Time
+                  </h2>
+
+                  <p className="mt-1 text-sm text-slate-500">
+                    {rescheduleAppointment.clinician}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRescheduleAppointment(null);
+                    setAvailableSlots([]);
+                    setSelectedSlotId("");
+                    setRescheduleError("");
+                  }}
+                  className="grid size-9 place-items-center rounded-lg text-2xl text-slate-400 transition-all duration-200 hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+                  aria-label="Close reschedule"
+                >
+                  ×
+                </button>
+              </div>
+
+              {/* Current Appointment */}
+              <div className="px-6 pt-5">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Current Appointment
+                  </p>
+
+                  <p className="mt-1 font-semibold text-slate-900">
+                    {formatDateTime(
+                      rescheduleAppointment.startsAt
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              {/* Error */}
+              {rescheduleError && (
+                <div className="mx-6 mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+                  {rescheduleError}
+                </div>
+              )}
+
+              {/* Available Slots */}
+              <div className="px-6 py-5">
+                <p className="mb-3 text-sm font-semibold text-slate-700">
+                  Available Slots
+                </p>
+
+                {availableSlots.length === 0 ? (
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-5 text-center">
+                    <p className="text-sm font-medium text-slate-500">
+                      No available slots found for this doctor.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid gap-3">
+                    {availableSlots.map((slot) => (
+                      <button
+                        key={slot.id}
+                        type="button"
+                        onClick={() =>
+                          setSelectedSlotId(slot.id)
+                        }
+                        className={`rounded-xl border px-4 py-3 text-left transition-all duration-200 ${
+                          selectedSlotId === slot.id
+                            ? "border-emerald-500 bg-emerald-50 ring-2 ring-emerald-100"
+                            : "border-slate-200 bg-white hover:border-emerald-300 hover:bg-emerald-50/50"
+                        }`}
+                      >
+                        <p className="font-semibold text-slate-900">
+                          {new Date(
+                            `${slot.date}T${slot.startTime}`
+                          ).toLocaleDateString(
+                            "en-IN",
+                            {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                            }
+                          )}
+                        </p>
+
+                        <p className="mt-1 text-sm text-slate-500">
+                          {slot.startTime} - {slot.endTime}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="flex gap-3 border-t border-slate-200 px-6 py-5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRescheduleAppointment(null);
+                    setAvailableSlots([]);
+                    setSelectedSlotId("");
+                    setRescheduleError("");
+                  }}
+                  className="flex-1 rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition-all duration-200 hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleReschedule}
+                  disabled={!selectedSlotId || rescheduling}
+                  className="flex-1 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition-all duration-200 hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {rescheduling
+                    ? "Rescheduling..."
+                    : "Confirm Reschedule"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
     </main>
   );
 }

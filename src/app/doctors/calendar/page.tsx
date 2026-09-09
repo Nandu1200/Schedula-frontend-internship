@@ -4,9 +4,9 @@ import {
   DragEvent,
    useEffect,
   useState,
-  useSyncExternalStore,
 } from "react";
 import type { Appointment } from "@/types/appointment";
+import { useAppointmentStore } from "@/store/appointmentStore";
 import type { AvailabilitySlot } from "@/types/availability";
 
 type CalendarView = "day" | "week" | "month";
@@ -31,7 +31,9 @@ const EMPTY_CALENDAR_DATA: CalendarData = {
 let cachedCalendarData = EMPTY_CALENDAR_DATA;
 let cachedStorageSnapshot = "";
 
-function getCalendarData(): CalendarData {
+function getCalendarData(
+  storeAppointments: Appointment[] = [],
+): CalendarData {
   if (typeof window === "undefined") {
     return EMPTY_CALENDAR_DATA;
   }
@@ -39,9 +41,6 @@ function getCalendarData(): CalendarData {
   const storedDoctor =
     localStorage.getItem("loggedInDoctor") ||
     localStorage.getItem("registeredDoctor");
-
-  const storedAppointments =
-    localStorage.getItem("appointments") || "";
 
   const currentDoctor = storedDoctor
     ? (JSON.parse(storedDoctor) as Doctor)
@@ -57,7 +56,7 @@ function getCalendarData(): CalendarData {
 
   const storageSnapshot = [
     storedDoctor || "",
-    storedAppointments,
+    JSON.stringify(storeAppointments),
     storedAvailability,
   ].join("|");
 
@@ -73,19 +72,11 @@ function getCalendarData(): CalendarData {
   }
 
   try {
-    let doctorAppointments: Appointment[] = [];
-
-    if (storedAppointments) {
-      const allAppointments = JSON.parse(
-        storedAppointments,
-      ) as Appointment[];
-
-      doctorAppointments = allAppointments.filter(
-        (appointment) =>
-          appointment.clinician.trim().toLowerCase() ===
-          currentDoctor.name.trim().toLowerCase(),
-      );
-    }
+    const doctorAppointments = storeAppointments.filter(
+      (appointment) =>
+        appointment.clinician.trim().toLowerCase() ===
+        currentDoctor.name.trim().toLowerCase(),
+    );
 
     let doctorAvailability: AvailabilitySlot[] = [];
 
@@ -110,18 +101,6 @@ function getCalendarData(): CalendarData {
     cachedCalendarData = EMPTY_CALENDAR_DATA;
     return cachedCalendarData;
   }
-}
-
-function subscribeToStorage(callback: () => void) {
-  window.addEventListener("storage", callback);
-
-  return () => {
-    window.removeEventListener("storage", callback);
-  };
-}
-
-function getServerCalendarData() {
-  return EMPTY_CALENDAR_DATA;
 }
 
 function formatDateKey(date: Date) {
@@ -262,17 +241,49 @@ useEffect(() => {
 
   const [message, setMessage] = useState("");
 
-  const calendarData = useSyncExternalStore(
-    subscribeToStorage,
-    getCalendarData,
-    getServerCalendarData,
+  const appointments = useAppointmentStore(
+    (state) => state.appointments,
   );
+
+  const setAppointments = useAppointmentStore(
+    (state) => state.setAppointments,
+  );
+
+  const updateAppointment = useAppointmentStore(
+    (state) => state.updateAppointment,
+  );
+
+  useEffect(() => {
+    const storedAppointments =
+      localStorage.getItem("appointments");
+
+    if (!storedAppointments) {
+      return;
+    }
+
+    try {
+      const parsedAppointments =
+        JSON.parse(storedAppointments) as Appointment[];
+
+      setAppointments(parsedAppointments);
+    } catch {
+      // Ignore invalid localStorage data.
+    }
+  }, [setAppointments]);
+
+  const calendarData = getCalendarData(appointments);
 
   const {
     doctor,
-    appointments,
     availability,
   } = calendarData;
+
+  const doctorAppointments = appointments.filter(
+    (appointment) =>
+      doctor &&
+      appointment.clinician.trim().toLowerCase() ===
+        doctor.name.trim().toLowerCase(),
+  );
 
   const todayKey = formatDateKey(new Date());
 
@@ -409,18 +420,12 @@ useEffect(() => {
       return;
     }
 
-    const currentAppointmentsRaw =
-      localStorage.getItem("appointments");
-
     const currentAvailabilityRaw =
       localStorage.getItem(
         `availabilitySlots-${targetSlot.doctorId}`,
       );
 
-    if (
-      !currentAppointmentsRaw ||
-      !currentAvailabilityRaw
-    ) {
+    if (!currentAvailabilityRaw) {
       setMessage(
         "Unable to reschedule appointment.",
       );
@@ -428,10 +433,7 @@ useEffect(() => {
     }
 
     try {
-      const currentAppointments =
-        JSON.parse(
-          currentAppointmentsRaw,
-        ) as Appointment[];
+      const currentAppointments = [...appointments];
 
       const currentAvailability =
         JSON.parse(
@@ -534,6 +536,10 @@ useEffect(() => {
         JSON.stringify(currentAppointments),
       );
 
+      updateAppointment(appointmentId, {
+        startsAt: newStartsAt,
+      });
+
       localStorage.setItem(
         `availabilitySlots-${targetSlot.doctorId}`,
         JSON.stringify(currentAvailability),
@@ -552,7 +558,7 @@ useEffect(() => {
       );
     }
   }
-const upcomingAppointments = appointments
+const upcomingAppointments = doctorAppointments
   .filter(
     (appointment) =>
       new Date(appointment.startsAt).getTime() >
@@ -678,7 +684,7 @@ const upcomingAppointments = appointments
             </p>
 
             <p className="mt-1 text-3xl font-bold text-slate-900">
-              {appointments.length}
+              {doctorAppointments.length}
             </p>
           </div>
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { doctors as mockDoctors } from "@/lib/mock-data/doctors";
+import { useAppointmentStore } from "@/store/appointmentStore";
 
 type Message = {
   id: number;
@@ -64,6 +65,10 @@ function renderAssistantContent(content: string) {
 }
 
 export default function SchedulaAICareAssistant() {
+  const appointments = useAppointmentStore(
+    (state) => state.appointments,
+  );
+
   const [isOpen, setIsOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState<Message[]>([
@@ -122,31 +127,18 @@ export default function SchedulaAICareAssistant() {
     }
 
     try {
-      const storedAppointments = localStorage.getItem("appointments");
-
-      let appointments: Array<Record<string, unknown>> = [];
-
-      if (storedAppointments) {
-        try {
-          const parsedAppointments = JSON.parse(storedAppointments);
-
-          if (Array.isArray(parsedAppointments)) {
-            appointments = parsedAppointments.map((appointment) => ({
-              id: appointment.id,
-              patientName: appointment.patient?.name,
-              clinician: appointment.clinician,
-              specialty: appointment.specialty,
-              startsAt: appointment.startsAt,
-              durationMinutes: appointment.durationMinutes,
-              status: appointment.status,
-              reason: appointment.reason,
-              room: appointment.room,
-            }));
-          }
-        } catch {
-          appointments = [];
-        }
-      }
+      const appointmentData: Array<Record<string, unknown>> =
+        appointments.map((appointment) => ({
+          id: appointment.id,
+          patientName: appointment.patient.name,
+          clinician: appointment.clinician,
+          specialty: appointment.specialty,
+          startsAt: appointment.startsAt,
+          durationMinutes: appointment.durationMinutes,
+          status: appointment.status,
+          reason: appointment.reason,
+          room: appointment.room,
+        }));
 
       const storedDoctor = localStorage.getItem("registeredDoctor");
 
@@ -198,7 +190,7 @@ export default function SchedulaAICareAssistant() {
       }
 
       console.log("AI Doctors:", doctors);
-      console.log("AI Appointments:", appointments);
+      console.log("AI Appointments:", appointmentData);
       console.log("AI Conversation:", conversationHistory);
 
       const response = await fetch("/api/ai/chat", {
@@ -209,7 +201,7 @@ export default function SchedulaAICareAssistant() {
         body: JSON.stringify({
           message: trimmedMessage,
           doctors,
-          appointments,
+          appointments: appointmentData,
           history: conversationHistory.map((chatMessage) => ({
             role: chatMessage.role,
             content: chatMessage.content,

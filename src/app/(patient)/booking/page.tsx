@@ -12,6 +12,7 @@ import { useSearchParams } from "next/navigation";
 
 import { doctors as mockDoctors } from "@/lib/mock-data/doctors";
 import { addNotification } from "@/lib/utils/notifications";
+import { useAppointmentStore } from "@/store/appointmentStore";
 
 import type { Doctor } from "@/types/doctor";
 import type { Appointment } from "@/types/appointment";
@@ -27,6 +28,10 @@ type LoggedInPatient = {
 
 function BookingContent() {
   const searchParams = useSearchParams();
+
+  const setAppointments = useAppointmentStore(
+    (state) => state.setAppointments
+  );
 
   const doctorId = searchParams.get("doctorId");
   const slotId = searchParams.get("slotId");
@@ -367,6 +372,12 @@ function BookingContent() {
       "appointments",
       JSON.stringify(updatedAppointments)
     );
+
+    /*
+     * Keep Zustand in sync with the
+     * appointments stored in localStorage.
+     */
+    setAppointments(updatedAppointments);
 
     /*
      * Mark selected slot as booked.

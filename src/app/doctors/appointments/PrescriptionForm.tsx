@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { Appointment } from "@/types/appointment";
 import type { Prescription } from "@/types/prescription";
+import { useAppointmentStore } from "@/store/appointmentStore";
 
 type PrescriptionFormProps = {
   appointmentId: string;
@@ -15,6 +16,10 @@ export default function PrescriptionForm({
   prescription,
   onSaved,
 }: PrescriptionFormProps) {
+  const updateAppointment = useAppointmentStore(
+    (state) => state.updateAppointment
+  );
+
   const firstMedicine = prescription?.medicines[0];
 
   const [diagnosis, setDiagnosis] = useState(
@@ -125,6 +130,10 @@ export default function PrescriptionForm({
         "appointments",
         JSON.stringify(updatedAppointments)
       );
+
+      updateAppointment(appointmentId, {
+        prescription: updatedAppointment.prescription,
+      });
 
       onSaved?.(updatedAppointment);
 
