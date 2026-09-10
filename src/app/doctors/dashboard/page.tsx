@@ -4,7 +4,10 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Appointment } from "@/types/appointment";
-import { useAppointmentStore } from "@/store/appointmentStore";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import {
+  setAppointments,
+} from "@/store/appointmentSlice";
 
 import {
   getNotifications,
@@ -64,13 +67,11 @@ export default function DoctorDashboardPage() {
   const [selectedAppointment, setSelectedAppointment] =
     useState<Appointment | null>(null);
 
-  const appointments = useAppointmentStore(
-    (state) => state.appointments,
+  const appointments = useAppSelector(
+    (state) => state.appointments.appointments,
   );
 
-  const setAppointments = useAppointmentStore(
-    (state) => state.setAppointments,
-  );
+  const dispatch = useAppDispatch();
 
     const [notifications, setNotifications] =
   useState<Notification[]>([]);
@@ -139,7 +140,7 @@ const [notificationOpen, setNotificationOpen] =
               storedAppointments,
             ) as Appointment[];
 
-          setAppointments(parsedAppointments);
+          dispatch(setAppointments(parsedAppointments));
           setAppointmentsLoading(false);
           return;
         }
@@ -160,11 +161,11 @@ const [notificationOpen, setNotificationOpen] =
           }>;
         })
         .then(({ data }) => {
-          setAppointments(data);
+          dispatch(setAppointments(data));
           setAppointmentsLoading(false);
         })
         .catch(() => {
-          setAppointments([]);
+          dispatch(setAppointments([]));
           setAppointmentsLoading(false);
         });
     };
@@ -178,7 +179,7 @@ const [notificationOpen, setNotificationOpen] =
     return () => {
       window.clearTimeout(timer);
     };
-  }, [setAppointments]);
+  }, [dispatch]);
 
   // Load doctor notifications
   useEffect(() => {

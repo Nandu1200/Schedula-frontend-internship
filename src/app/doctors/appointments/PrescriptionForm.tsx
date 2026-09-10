@@ -3,7 +3,10 @@
 import { useState } from "react";
 import type { Appointment } from "@/types/appointment";
 import type { Prescription } from "@/types/prescription";
-import { useAppointmentStore } from "@/store/appointmentStore";
+import { useAppDispatch } from "@/store/hooks";
+import {
+  updateAppointment as updateAppointmentAction,
+} from "@/store/appointmentSlice";
 
 type PrescriptionFormProps = {
   appointmentId: string;
@@ -16,9 +19,7 @@ export default function PrescriptionForm({
   prescription,
   onSaved,
 }: PrescriptionFormProps) {
-  const updateAppointment = useAppointmentStore(
-    (state) => state.updateAppointment
-  );
+  const dispatch = useAppDispatch();
 
   const firstMedicine = prescription?.medicines[0];
 
@@ -131,9 +132,14 @@ export default function PrescriptionForm({
         JSON.stringify(updatedAppointments)
       );
 
-      updateAppointment(appointmentId, {
-        prescription: updatedAppointment.prescription,
-      });
+      dispatch(
+        updateAppointmentAction({
+          appointmentId,
+          updates: {
+            prescription: updatedAppointment.prescription,
+          },
+        })
+      );
 
       onSaved?.(updatedAppointment);
 

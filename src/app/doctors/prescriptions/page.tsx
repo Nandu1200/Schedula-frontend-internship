@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import type { Appointment } from "@/types/appointment";
-import { useAppointmentStore } from "@/store/appointmentStore";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { setAppointments } from "@/store/appointmentSlice";
 import PrescriptionForm from "../appointments/PrescriptionForm";
 
 type LoggedInDoctor = {
@@ -14,13 +15,11 @@ export default function DoctorPrescriptionsPage() {
   const [doctor, setDoctor] =
     useState<LoggedInDoctor | null>(null);
 
-  const appointments = useAppointmentStore(
-    (state) => state.appointments,
+  const appointments = useAppSelector(
+    (state) => state.appointments.appointments,
   );
 
-  const setAppointments = useAppointmentStore(
-    (state) => state.setAppointments,
-  );
+  const dispatch = useAppDispatch();
 
   const [selectedPrescription, setSelectedPrescription] =
     useState<Appointment | null>(null);
@@ -84,7 +83,7 @@ export default function DoctorPrescriptionsPage() {
     return () => {
       window.clearTimeout(timer);
     };
-  }, [setAppointments]);
+  }, [dispatch]);
 
   const prescriptionAppointments = appointments.filter(
     (appointment) =>

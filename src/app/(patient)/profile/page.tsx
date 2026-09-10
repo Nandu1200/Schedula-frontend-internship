@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAppointmentStore } from "@/store/appointmentStore";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { setAppointments } from "@/store/appointmentSlice";
 
 type StoredPatient = {
   name?: string;
@@ -100,13 +101,11 @@ const getStoredPatient = (): StoredPatient => {
 export default function PatientProfilePage() {
   const storedPatient = getStoredPatient();
 
-  const appointments = useAppointmentStore(
-    (state) => state.appointments
+  const appointments = useAppSelector(
+    (state) => state.appointments.appointments
   );
 
-  const setAppointments = useAppointmentStore(
-    (state) => state.setAppointments
-  );
+  const dispatch = useAppDispatch();
 
   useEffect(() => {
     if (appointments.length > 0 || typeof window === "undefined") {
@@ -124,13 +123,15 @@ export default function PatientProfilePage() {
       const parsedAppointments =
         JSON.parse(storedAppointments) as StoredAppointment[];
 
-      setAppointments(
-        parsedAppointments as import("@/types/appointment").Appointment[]
+      dispatch(
+        setAppointments(
+          parsedAppointments as import("@/types/appointment").Appointment[]
+        )
       );
     } catch {
       // Ignore invalid localStorage appointment data.
     }
-  }, [appointments.length, setAppointments]);
+  }, [appointments.length, dispatch]);
 
   const appointmentStats = getAppointmentStats(
     appointments,

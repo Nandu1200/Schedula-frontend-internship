@@ -2,7 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { useAppointmentStore } from "@/store/appointmentStore";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import {
+  setAppointments,
+  updateAppointment as updateAppointmentAction,
+} from "@/store/appointmentSlice";
 
 import { addNotification } from "@/lib/utils/notifications";
 
@@ -118,15 +122,27 @@ const createStartsAt = (date: string, time: string) => {
 };
 
 export default function DoctorAppointmentsPage() {
-  const appointments = useAppointmentStore((state) => state.appointments);
-
-  const setStoreAppointments = useAppointmentStore(
-    (state) => state.setAppointments
+  const appointments = useAppSelector(
+    (state) => state.appointments.appointments
   );
 
-  const updateStoreAppointment = useAppointmentStore(
-    (state) => state.updateAppointment
-  );
+  const dispatch = useAppDispatch();
+
+  const setStoreAppointments = (appointments: Appointment[]) => {
+    dispatch(setAppointments(appointments));
+  };
+
+  const updateStoreAppointment = (
+    appointmentId: string,
+    updates: Partial<Appointment>
+  ) => {
+    dispatch(
+      updateAppointmentAction({
+        appointmentId,
+        updates,
+      })
+    );
+  };
 
   const [doctorName, setDoctorName] = useState("");
 
@@ -177,7 +193,7 @@ export default function DoctorAppointmentsPage() {
         localStorage.getItem("appointments");
 
       if (!storedDoctor) {
-        setStoreAppointments([]);
+        dispatch(setAppointments([]));
         setDoctorName("");
         setLoading(false);
         return;
@@ -193,10 +209,10 @@ export default function DoctorAppointmentsPage() {
           const allAppointments =
             JSON.parse(storedAppointments) as Appointment[];
 
-          setStoreAppointments(allAppointments);
+          dispatch(setAppointments(allAppointments));
         }
       } catch {
-        setStoreAppointments([]);
+        dispatch(setAppointments([]));
         setDoctorName("");
       }
 
@@ -207,7 +223,7 @@ export default function DoctorAppointmentsPage() {
     return () => {
       window.clearTimeout(timer);
     };
-  }, [setStoreAppointments]);
+  }, [dispatch]);
 
   const doctorAppointments = useMemo(() => {
     const normalizedDoctorName =
@@ -619,7 +635,7 @@ export default function DoctorAppointmentsPage() {
       }
 
       /*
-       * Update appointment list in Zustand.
+       * Update appointment list in Redux.
        */
       setStoreAppointments(updatedAppointments);
 

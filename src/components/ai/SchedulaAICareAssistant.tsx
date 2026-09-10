@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { doctors as mockDoctors } from "@/lib/mock-data/doctors";
-import { useAppointmentStore } from "@/store/appointmentStore";
+import { useAppSelector } from "@/store/hooks";
 
 type Message = {
   id: number;
@@ -65,8 +65,8 @@ function renderAssistantContent(content: string) {
 }
 
 export default function SchedulaAICareAssistant() {
-  const appointments = useAppointmentStore(
-    (state) => state.appointments,
+  const appointments = useAppSelector(
+    (state) => state.appointments.appointments,
   );
 
   const [isOpen, setIsOpen] = useState(false);

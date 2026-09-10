@@ -10,7 +10,8 @@ import {
   useSyncExternalStore,
 } from "react";
 import type { Appointment } from "@/types/appointment";
-import { useAppointmentStore } from "@/store/appointmentStore";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { setAppointments } from "@/store/appointmentSlice";
 import {
   getNotifications,
   getUnreadNotificationCount,
@@ -230,13 +231,11 @@ export default function PatientDashboardPage() {
     getPatientServerSnapshot
   );
 
-  const appointments = useAppointmentStore(
-    (state) => state.appointments
+  const appointments = useAppSelector(
+    (state) => state.appointments.appointments
   );
 
-  const setAppointments = useAppointmentStore(
-    (state) => state.setAppointments
-  );
+  const dispatch = useAppDispatch();
 
   useEffect(() => {
     if (appointments.length > 0) {
@@ -255,12 +254,12 @@ export default function PatientDashboardPage() {
         JSON.parse(storedAppointments) as Appointment[];
 
       if (Array.isArray(parsedAppointments)) {
-        setAppointments(parsedAppointments);
+        dispatch(setAppointments(parsedAppointments));
       }
     } catch {
       // Ignore invalid localStorage data.
     }
-  }, [appointments.length, setAppointments]);
+  }, [appointments.length, dispatch]);
 
   const notifications =
     useSyncExternalStore(

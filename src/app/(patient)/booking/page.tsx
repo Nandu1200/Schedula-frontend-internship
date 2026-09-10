@@ -12,7 +12,8 @@ import { useSearchParams } from "next/navigation";
 
 import { doctors as mockDoctors } from "@/lib/mock-data/doctors";
 import { addNotification } from "@/lib/utils/notifications";
-import { useAppointmentStore } from "@/store/appointmentStore";
+import { useAppDispatch } from "@/store/hooks";
+import { setAppointments } from "@/store/appointmentSlice";
 
 import type { Doctor } from "@/types/doctor";
 import type { Appointment } from "@/types/appointment";
@@ -29,9 +30,7 @@ type LoggedInPatient = {
 function BookingContent() {
   const searchParams = useSearchParams();
 
-  const setAppointments = useAppointmentStore(
-    (state) => state.setAppointments
-  );
+  const dispatch = useAppDispatch();
 
   const doctorId = searchParams.get("doctorId");
   const slotId = searchParams.get("slotId");
@@ -374,10 +373,10 @@ function BookingContent() {
     );
 
     /*
-     * Keep Zustand in sync with the
+     * Keep Redux in sync with the
      * appointments stored in localStorage.
      */
-    setAppointments(updatedAppointments);
+    dispatch(setAppointments(updatedAppointments));
 
     /*
      * Mark selected slot as booked.
@@ -411,7 +410,7 @@ function BookingContent() {
       read: false,
     });
 
-        /*
+    /*
      * Create doctor notification.
      */
     addNotification({
@@ -424,6 +423,7 @@ function BookingContent() {
       createdAt: new Date().toISOString(),
       read: false,
     });
+
     /*
      * Update selected slot state.
      */

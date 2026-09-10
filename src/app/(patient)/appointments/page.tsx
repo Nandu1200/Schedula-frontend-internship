@@ -4,7 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import jsPDF from "jspdf";
 import { addNotification } from "@/lib/utils/notifications";
-import { useAppointmentStore } from "@/store/appointmentStore";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import {
+  setAppointments,
+  updateAppointment as updateAppointmentAction,
+} from "@/store/appointmentSlice";
 import type { Appointment } from "@/types/appointment";
 import type { AvailabilitySlot } from "@/types/availability";
 
@@ -78,17 +82,23 @@ const getAppointmentType = (
 export default function PatientAppointmentsPage() {
   const router = useRouter();
 
-  const appointments = useAppointmentStore(
-    (state) => state.appointments
+  const appointments = useAppSelector(
+    (state) => state.appointments.appointments
   );
 
-  const setAppointments = useAppointmentStore(
-    (state) => state.setAppointments
-  );
+  const dispatch = useAppDispatch();
 
-  const updateAppointment = useAppointmentStore(
-    (state) => state.updateAppointment
-  );
+  const updateAppointment = (
+    appointmentId: string,
+    updates: Partial<Appointment>
+  ) => {
+    dispatch(
+      updateAppointmentAction({
+        appointmentId,
+        updates,
+      })
+    );
+  };
 
   const [loading, setLoading] =
     useState(true);
@@ -140,7 +150,7 @@ const [reviewComment, setReviewComment] =
         !storedPatient ||
         !storedAppointments
       ) {
-        setAppointments([]);
+        dispatch(setAppointments([]));
         setLoading(false);
         return;
       }
@@ -182,9 +192,9 @@ const [reviewComment, setReviewComment] =
             ).getTime()
         );
 
-        setAppointments(patientAppointments);
+        dispatch(setAppointments(patientAppointments));
       } catch {
-        setAppointments([]);
+        dispatch(setAppointments([]));
       }
 
       setLoading(false);
@@ -199,7 +209,7 @@ const [reviewComment, setReviewComment] =
     return () => {
       window.clearTimeout(timer);
     };
-  }, [setAppointments]);
+  }, [dispatch]);
 
   const tabCounts = useMemo(() => {
     return {
@@ -866,13 +876,15 @@ if (storedPatient) {
     storedPatient
   ) as LoggedInPatient;
 
-  setAppointments(
-    updatedAppointments.filter(
+  dispatch(
+    setAppointments(
+      updatedAppointments.filter(
       (appointment) =>
         appointment.patient.name
           .trim()
           .toLowerCase() ===
         patient.name.trim().toLowerCase()
+      )
     )
   );
 }

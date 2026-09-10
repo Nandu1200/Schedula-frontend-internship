@@ -6,7 +6,11 @@ import {
   useState,
 } from "react";
 import type { Appointment } from "@/types/appointment";
-import { useAppointmentStore } from "@/store/appointmentStore";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import {
+  setAppointments,
+  updateAppointment as updateAppointmentAction,
+} from "@/store/appointmentSlice";
 import type { AvailabilitySlot } from "@/types/availability";
 
 type CalendarView = "day" | "week" | "month";
@@ -247,17 +251,11 @@ useEffect(() => {
 
   const [message, setMessage] = useState("");
 
-  const appointments = useAppointmentStore(
-    (state) => state.appointments,
+  const appointments = useAppSelector(
+    (state) => state.appointments.appointments,
   );
 
-  const setAppointments = useAppointmentStore(
-    (state) => state.setAppointments,
-  );
-
-  const updateAppointment = useAppointmentStore(
-    (state) => state.updateAppointment,
-  );
+  const dispatch = useAppDispatch();
 
   useEffect(() => {
     const storedAppointments =
@@ -271,11 +269,11 @@ useEffect(() => {
       const parsedAppointments =
         JSON.parse(storedAppointments) as Appointment[];
 
-      setAppointments(parsedAppointments);
+      dispatch(setAppointments(parsedAppointments));
     } catch {
       // Ignore invalid localStorage data.
     }
-  }, [setAppointments]);
+  }, [dispatch]);
 
   const calendarData = getCalendarData(appointments);
 
@@ -542,9 +540,14 @@ useEffect(() => {
         JSON.stringify(currentAppointments),
       );
 
-      updateAppointment(appointmentId, {
-        startsAt: newStartsAt,
-      });
+      dispatch(
+        updateAppointmentAction({
+          appointmentId,
+          updates: {
+            startsAt: newStartsAt,
+          },
+        })
+      );
 
       localStorage.setItem(
         `availabilitySlots-${targetSlot.doctorId}`,
