@@ -194,12 +194,12 @@ export default function DoctorCalendarPage() {
   const [view, setView] =
     useState<CalendarView>("week");
 
-  const [selectedDate, setSelectedDate] = useState(
-    new Date(),
+  const [selectedDate, setSelectedDate] = useState<Date>(
+    new Date(0),
   );
-  const [currentTime] = useState(
-  () => Date.now(),
-);
+  const [currentTime, setCurrentTime] = useState(0);
+
+  const [isMounted, setIsMounted] = useState(false);
 
   const [selectedTime, setSelectedTime] = useState<string | null>(
   null,
@@ -207,6 +207,12 @@ export default function DoctorCalendarPage() {
   
 useEffect(() => {
   const timer = window.setTimeout(() => {
+    const now = new Date();
+
+    setSelectedDate(now);
+    setCurrentTime(now.getTime());
+    setIsMounted(true);
+
     const params = new URLSearchParams(
       window.location.search,
     );
@@ -575,6 +581,23 @@ const upcomingAppointments = doctorAppointments
 
   const weekDates = getWeekDates(selectedDate);
   const monthDates = getMonthDates(selectedDate);
+
+  if (!isMounted || !selectedDate) {
+    return (
+      <main className="min-h-screen bg-[#f7faf9] p-4 sm:p-6">
+        <div className="mx-auto max-w-7xl">
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+              Calendar
+            </h1>
+            <p className="mt-2 text-sm text-slate-600">
+              Loading calendar...
+            </p>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-[#f7faf9] p-4 sm:p-6">
