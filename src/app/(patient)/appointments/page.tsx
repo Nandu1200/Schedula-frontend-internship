@@ -79,6 +79,28 @@ const getAppointmentType = (
   );
 };
 
+const getFollowUpDate = (
+  startsAt: string,
+  afterDays: number
+) => {
+  const appointmentDate = new Date(startsAt);
+
+  appointmentDate.setHours(0, 0, 0, 0);
+  appointmentDate.setDate(
+    appointmentDate.getDate() + afterDays
+  );
+
+  const year = appointmentDate.getFullYear();
+  const month = String(
+    appointmentDate.getMonth() + 1
+  ).padStart(2, "0");
+  const day = String(
+    appointmentDate.getDate()
+  ).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+};
+
 export default function PatientAppointmentsPage() {
   const router = useRouter();
 
@@ -104,6 +126,12 @@ export default function PatientAppointmentsPage() {
     useState(true);
 
   const [cancellingId, setCancellingId] =
+    useState("");
+
+  const [cancelAppointment, setCancelAppointment] =
+    useState<Appointment | null>(null);
+
+  const [successMessage, setSuccessMessage] =
     useState("");
 
   const [error, setError] =
@@ -516,7 +544,7 @@ if (!doctorId) {
       setAvailableSlots([]);
       setSelectedSlotId("");
       setRescheduleError("");
-      window.alert(
+      setSuccessMessage(
         "Appointment rescheduled successfully."
       );
     } catch (error) {
@@ -537,14 +565,15 @@ if (!doctorId) {
       return;
     }
 
-    const shouldCancel =
-      window.confirm(
-        "Are you sure you want to cancel this appointment?"
-      );
+    setCancelAppointment(appointment);
+  };
 
-    if (!shouldCancel) {
+  const confirmCancelAppointment = () => {
+    if (!cancelAppointment || cancellingId) {
       return;
     }
+
+    const appointment = cancelAppointment;
 
     setCancellingId(
       appointment.id
@@ -707,6 +736,7 @@ if (
     }
 
     setCancellingId("");
+    setCancelAppointment(null);
   };
 
  const handleViewPrescription = (
@@ -937,9 +967,26 @@ if (storedPatient) {
     return;
   }
 
+  if (
+    appointment.followUp?.recommended &&
+    typeof appointment.followUp.afterDays === "number"
+  ) {
+    const followUpDate = getFollowUpDate(
+      appointment.startsAt,
+      appointment.followUp.afterDays
+    );
+
+    router.push(
+      `/doctors/${encodeURIComponent(doctorId)}?followUpDate=${encodeURIComponent(
+        followUpDate
+      )}`
+    );
+    return;
+  }
+
   router.push(
-  `/doctors/${encodeURIComponent(doctorId)}`
-);
+    `/doctors/${encodeURIComponent(doctorId)}`
+  );
 };
 
   if (loading) {
@@ -1422,6 +1469,104 @@ if (storedPatient) {
         )}
 
       </div>
+      {successMessage && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 px-4 py-6 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl sm:p-7">
+            <div className="flex items-start gap-4">
+              <div className="grid size-11 shrink-0 place-items-center rounded-full bg-emerald-100 text-lg font-bold text-emerald-700 ring-4 ring-emerald-50">
+                ✓
+              </div>
+
+              <div className="flex-1">
+                <h2 className="text-xl font-bold tracking-tight text-slate-900">
+                  Success
+                </h2>
+
+                <p className="mt-2 text-sm leading-6 text-slate-600">
+                  {successMessage}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSuccessMessage("")}
+                className="grid size-9 place-items-center rounded-lg text-2xl text-slate-400 transition-all duration-200 hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+                aria-label="Close success message"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setSuccessMessage("")}
+                className="rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-emerald-700 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {cancelAppointment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 px-4 py-6 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl sm:p-7">
+            <div className="mb-5 flex items-start justify-between border-b border-slate-200 pb-5">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-red-600">
+                  Cancel Appointment
+                </p>
+
+                <h2 className="mt-1 text-xl font-bold tracking-tight text-slate-900">
+                  Are you sure?
+                </h2>
+
+                <p className="mt-2 text-sm leading-6 text-slate-500">
+                  Are you sure you want to cancel this appointment with{" "}
+                  <span className="font-semibold text-slate-700">
+                    {cancelAppointment.clinician}
+                  </span>
+                  ?
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setCancelAppointment(null)}
+                className="grid size-9 shrink-0 place-items-center rounded-lg text-2xl text-slate-400 transition-all duration-200 hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+                aria-label="Close cancel confirmation"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setCancelAppointment(null)}
+                disabled={cancellingId === cancelAppointment.id}
+                className="flex-1 rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition-all duration-200 hover:bg-slate-50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Keep Appointment
+              </button>
+
+              <button
+                type="button"
+                onClick={confirmCancelAppointment}
+                disabled={cancellingId === cancelAppointment.id}
+                className="flex-1 rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600 transition-all duration-200 hover:bg-red-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {cancellingId === cancelAppointment.id
+                  ? "Cancelling..."
+                  : "Cancel Appointment"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
               {reviewAppointment && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 px-4 py-6 backdrop-blur-sm">
             <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl sm:p-7">

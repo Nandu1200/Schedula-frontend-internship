@@ -180,6 +180,11 @@ export default function DoctorAppointmentsPage() {
   const [followUpDays, setFollowUpDays] = useState("7");
   const [followUpNote, setFollowUpNote] = useState("");
 
+  const [confirmation, setConfirmation] = useState<{
+    message: string;
+    onConfirm: () => void;
+  } | null>(null);
+
   /*
    * Load doctor appointments.
    */
@@ -462,11 +467,20 @@ export default function DoctorAppointmentsPage() {
       return;
     }
 
-    const shouldUpdate = window.confirm(
-      "Are you sure you want to reschedule this appointment?"
-    );
+    setConfirmation({
+      message:
+        "Are you sure you want to reschedule this appointment?",
+      onConfirm: () => {
+        setConfirmation(null);
+        performReschedule(selectedSlot);
+      },
+    });
+  };
 
-    if (!shouldUpdate) {
+  const performReschedule = (
+    selectedSlot: AvailabilitySlot
+  ) => {
+    if (!rescheduleAppointment) {
       return;
     }
 
@@ -686,13 +700,28 @@ export default function DoctorAppointmentsPage() {
         "mark this appointment as missed";
     }
 
-    const shouldUpdate = window.confirm(
-      `Are you sure you want to ${actionText} this appointment?`
-    );
+    setConfirmation({
+      message: `Are you sure you want to ${actionText} this appointment?`,
+      onConfirm: () => {
+        setConfirmation(null);
+        performAppointmentStatusUpdate(
+          appointment,
+          status,
+          actionText
+        );
+      },
+    });
+  };
 
-    if (!shouldUpdate) {
-      return;
-    }
+  const performAppointmentStatusUpdate = (
+    appointment: Appointment,
+    status:
+      | "confirmed"
+      | "cancelled"
+      | "completed"
+      | "missed",
+    actionText: string
+  ) => {
 
     setActionId(appointment.id);
     setError("");
@@ -2289,6 +2318,76 @@ export default function DoctorAppointmentsPage() {
 
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* ================================================= */}
+      {/* Confirmation Modal */}
+      {/* ================================================= */}
+
+      {confirmation && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="confirmation-title"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setConfirmation(null);
+            }
+          }}
+        >
+          <div className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+            <div className="border-b border-slate-200 bg-slate-50/50 p-6">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm font-semibold uppercase tracking-wide text-emerald-600">
+                    Confirmation
+                  </p>
+
+                  <h2
+                    id="confirmation-title"
+                    className="mt-1 text-xl font-bold text-slate-900"
+                  >
+                    Confirm Action
+                  </h2>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setConfirmation(null)}
+                  aria-label="Close confirmation"
+                  className="grid size-9 shrink-0 place-items-center rounded-full text-xl text-slate-500 transition-all duration-200 hover:scale-105 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6">
+              <p className="text-sm leading-6 text-slate-600">
+                {confirmation.message}
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-3 border-t border-slate-200 bg-slate-50/50 p-6 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setConfirmation(null)}
+                className="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700 transition-all duration-200 hover:bg-slate-50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500 focus-visible:ring-offset-2"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={confirmation.onConfirm}
+                className="rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white transition-all duration-200 hover:bg-emerald-700 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+              >
+                Confirm
+              </button>
+            </div>
           </div>
         </div>
       )}

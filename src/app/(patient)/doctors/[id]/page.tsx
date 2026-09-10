@@ -2,7 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
+import {
+  useParams,
+  useSearchParams,
+} from "next/navigation";
 
 import { doctors as mockDoctors } from "@/lib/mock-data/doctors";
 import type { Doctor } from "@/types/doctor";
@@ -29,9 +32,13 @@ const formatDate = (date: string) => {
 
 export default function DoctorDetailsPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
 
   const doctorId =
     typeof params.id === "string" ? params.id : "";
+
+  const followUpDate =
+    searchParams.get("followUpDate");
 
   const [doctor, setDoctor] = useState<Doctor | null>(null);
   const [slots, setSlots] = useState<AvailabilitySlot[]>([]);
@@ -86,7 +93,9 @@ export default function DoctorDetailsPage() {
             .filter(
               (slot) =>
                 slot.doctorId === selectedDoctor.id &&
-                slot.status === "available"
+                slot.status === "available" &&
+                (!followUpDate ||
+                  slot.date >= followUpDate)
             )
             .sort((first, second) => {
               const firstValue =
@@ -112,7 +121,7 @@ export default function DoctorDetailsPage() {
     };
 
     loadDoctor();
-  }, [doctorId]);
+  }, [doctorId, followUpDate]);
 
   const slotsByDate = useMemo(() => {
     const grouped: Record<string, AvailabilitySlot[]> = {};
@@ -327,9 +336,21 @@ export default function DoctorDetailsPage() {
               Available Appointment Slots
             </h2>
 
-            <p className="mt-2 text-sm text-slate-500">
-              Choose an available time to continue with your booking.
-            </p>
+            {followUpDate ? (
+              <>
+                <p className="mt-2 text-sm font-semibold text-emerald-700">
+                  Follow-up appointment
+                </p>
+
+                <p className="mt-1 text-sm text-slate-500">
+                  Showing availability only for {formatDate(followUpDate)}.
+                </p>
+              </>
+            ) : (
+              <p className="mt-2 text-sm text-slate-500">
+                Choose an available time to continue with your booking.
+              </p>
+            )}
           </div>
 
           {slots.length === 0 ? (
@@ -340,11 +361,17 @@ export default function DoctorDetailsPage() {
               </div>
 
               <h3 className="mt-4 font-bold">
-                No available slots
+                {followUpDate
+                  ? "No availability for follow-up date"
+                  : "No available slots"}
               </h3>
 
               <p className="mt-2 text-sm text-slate-500">
-                This doctor currently has no available appointment slots.
+                {followUpDate
+                  ? `This doctor has no available appointment slots on ${formatDate(
+                      followUpDate
+                    )}.`
+                  : "This doctor currently has no available appointment slots."}
               </p>
 
             </div>
