@@ -27,10 +27,53 @@ const formatSlotDate = (slot: AvailabilitySlot) => {
   }).format(date);
 };
 
+type DoctorRating = {
+  average: number;
+  count: number;
+};
+
+const getDoctorIdFromAppointmentId = (appointmentId: string) => {
+  const appointmentIdParts = appointmentId.split("-");
+  const slotIndex = appointmentIdParts.indexOf("slot");
+  const doctorIndex = appointmentIdParts.indexOf("doctor");
+
+  if (doctorIndex === -1 || slotIndex === -1) {
+    return null;
+  }
+
+  const doctorId = appointmentIdParts
+    .slice(doctorIndex, slotIndex)
+    .join("-");
+
+  return doctorId || null;
+};
+
+const getMockDoctorRatings = () => {
+  const demoRatings = [
+    { average: 4.5, count: 24 },
+    { average: 4.7, count: 31 },
+    { average: 4.3, count: 18 },
+    { average: 4.8, count: 27 },
+    { average: 4.1, count: 15 },
+  ];
+
+  return mockDoctors.reduce<Record<string, DoctorRating>>(
+    (ratings, doctor, index) => {
+      ratings[doctor.id] =
+        demoRatings[index % demoRatings.length];
+      return ratings;
+    },
+    {}
+  );
+};
+
 export default function DoctorsPage() {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [availableSlots, setAvailableSlots] = useState<
     Record<string, AvailabilitySlot[]>
+  >({});
+  const [doctorRatings, setDoctorRatings] = useState<
+    Record<string, DoctorRating>
   >({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -102,6 +145,82 @@ export default function DoctorsPage() {
         });
 
         setAvailableSlots(slotMap);
+
+        /*
+         * Calculate each doctor's average rating from
+         * completed appointments that have a patient review.
+         */
+        const storedAppointments = localStorage.getItem(
+          "appointments"
+        );
+
+        const ratingMap: Record<
+          string,
+          { total: number; count: number }
+        > = {};
+
+        if (storedAppointments) {
+          try {
+            const parsedAppointments = JSON.parse(
+              storedAppointments
+            ) as Array<{
+              id?: string;
+              status?: string;
+              review?: { rating?: number };
+            }>;
+
+            parsedAppointments.forEach((appointment) => {
+              const rating = appointment.review?.rating;
+
+              if (
+                appointment.status !== "completed" ||
+                typeof rating !== "number" ||
+                rating < 1 ||
+                rating > 5 ||
+                !appointment.id
+              ) {
+                return;
+              }
+
+              const doctorId = getDoctorIdFromAppointmentId(
+                appointment.id
+              );
+
+              if (!doctorId) {
+                return;
+              }
+
+              if (!ratingMap[doctorId]) {
+                ratingMap[doctorId] = { total: 0, count: 0 };
+              }
+
+              ratingMap[doctorId].total += rating;
+              ratingMap[doctorId].count += 1;
+            });
+          } catch {
+            // Ignore invalid stored appointment data.
+          }
+        }
+
+        const calculatedRatings: Record<string, DoctorRating> = {};
+
+        Object.entries(ratingMap).forEach(
+          ([doctorId, rating]) => {
+            calculatedRatings[doctorId] = {
+              average: Number(
+                (rating.total / rating.count).toFixed(1)
+              ),
+              count: rating.count,
+            };
+          }
+        );
+
+        const mockRatings = getMockDoctorRatings();
+
+        setDoctorRatings({
+          ...mockRatings,
+          ...calculatedRatings,
+        });
         setLoading(false);
       } catch {
         setError("We couldn't load doctors.");
@@ -262,6 +381,33 @@ export default function DoctorsPage() {
                       <p className="mt-1 text-sm text-slate-500">
                         {doctor.experienceYears} years experience
                       </p>
+
+                      {doctorRatings[doctor.id] ? (
+                        <div className="mt-2 flex items-center gap-2">
+                          <span className="text-base font-bold text-slate-900">
+                            {doctorRatings[doctor.id].average.toFixed(1)}
+                          </span>
+
+                          <span
+                            className="text-sm tracking-wide text-yellow-500"
+                            aria-label={`${doctorRatings[doctor.id].average} out of 5 stars`}
+                          >
+                            ★★★★★
+                          </span>
+
+                          <span className="text-xs text-slate-500">
+                            ({doctorRatings[doctor.id].count} {
+                              doctorRatings[doctor.id].count === 1
+                                ? "review"
+                                : "reviews"
+                            })
+                          </span>
+                        </div>
+                      ) : (
+                        <p className="mt-2 text-xs font-medium text-slate-400">
+                          No ratings yet
+                        </p>
+                      )}
                     </div>
                   </div>
 

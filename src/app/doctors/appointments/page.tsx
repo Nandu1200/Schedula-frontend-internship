@@ -174,6 +174,15 @@ export default function DoctorAppointmentsPage() {
 
   const [rescheduleError, setRescheduleError] = useState("");
 
+  const [actionReason, setActionReason] = useState("");
+
+  const [reasonDialog, setReasonDialog] = useState<{
+    appointment: Appointment;
+    reason: string;
+  } | null>(null);
+
+  const [reasonError, setReasonError] = useState("");
+
   const [followUpAppointment, setFollowUpAppointment] =
     useState<Appointment | null>(null);
 
@@ -438,6 +447,7 @@ export default function DoctorAppointmentsPage() {
     setAvailableSlots([]);
     setSelectedSlotId("");
     setRescheduleError("");
+    setActionReason("");
   };
 
   /*
@@ -467,18 +477,28 @@ export default function DoctorAppointmentsPage() {
       return;
     }
 
+    const trimmedReason = actionReason.trim();
+
+    if (!trimmedReason) {
+      setRescheduleError(
+        "Please provide a reason for rescheduling."
+      );
+      return;
+    }
+
     setConfirmation({
       message:
         "Are you sure you want to reschedule this appointment?",
       onConfirm: () => {
         setConfirmation(null);
-        performReschedule(selectedSlot);
+        performReschedule(selectedSlot, trimmedReason);
       },
     });
   };
 
   const performReschedule = (
-    selectedSlot: AvailabilitySlot
+    selectedSlot: AvailabilitySlot,
+    reason: string
   ) => {
     if (!rescheduleAppointment) {
       return;
@@ -582,6 +602,9 @@ export default function DoctorAppointmentsPage() {
               selectedSlot.date,
               selectedSlot.startTime
             ),
+            actionBy: "doctor" as const,
+            actionType: "rescheduled" as const,
+            actionReason: reason,
           };
         });
 
@@ -700,6 +723,15 @@ export default function DoctorAppointmentsPage() {
         "mark this appointment as missed";
     }
 
+    if (status === "cancelled") {
+      setReasonError("");
+      setReasonDialog({
+        appointment,
+        reason: "",
+      });
+      return;
+    }
+
     setConfirmation({
       message: `Are you sure you want to ${actionText} this appointment?`,
       onConfirm: () => {
@@ -720,7 +752,8 @@ export default function DoctorAppointmentsPage() {
       | "cancelled"
       | "completed"
       | "missed",
-    actionText: string
+    actionText: string,
+    reason?: string
   ) => {
 
     setActionId(appointment.id);
@@ -741,6 +774,13 @@ export default function DoctorAppointmentsPage() {
       ? {
           ...item,
           status,
+          ...(status === "cancelled"
+            ? {
+                actionBy: "doctor" as const,
+                actionType: "cancelled" as const,
+                actionReason: reason,
+              }
+            : {}),
           ...(status === "completed"
             ? {
              prescription: {
@@ -781,7 +821,7 @@ export default function DoctorAppointmentsPage() {
     userId: appointment.patient.id,
     type: "cancellation",
     title: "Appointment Cancelled",
-    message: `Your appointment with ${appointment.clinician} has been cancelled.`,
+    message: `Your appointment with ${appointment.clinician} has been cancelled. Reason: ${reason ?? "No reason provided."}`,
     appointmentId: appointment.id,
     createdAt: new Date().toISOString(),
     read: false,
@@ -885,6 +925,39 @@ export default function DoctorAppointmentsPage() {
       appointment,
       "cancelled"
     );
+  };
+
+  const handleCancelReasonSubmit = () => {
+    if (!reasonDialog) {
+      return;
+    }
+
+    const trimmedReason = reasonDialog.reason.trim();
+
+    if (!trimmedReason) {
+      setReasonError(
+        "Please provide a reason for cancelling the appointment."
+      );
+      return;
+    }
+
+    setReasonError("");
+    setError("");
+    const appointment = reasonDialog.appointment;
+    setReasonDialog(null);
+
+    setConfirmation({
+      message: "Are you sure you want to cancel this appointment?",
+      onConfirm: () => {
+        setConfirmation(null);
+        performAppointmentStatusUpdate(
+          appointment,
+          "cancelled",
+          "cancel",
+          trimmedReason
+        );
+      },
+    });
   };
 
   const clearFilters = () => {
@@ -1337,6 +1410,22 @@ export default function DoctorAppointmentsPage() {
 
                     </div>
 
+                    {appointment.actionReason && appointment.actionBy && (
+                      <div className="mt-5 border-t border-gray-100 pt-5">
+                        <p className="text-sm text-gray-500">
+                          {appointment.actionType === "cancelled"
+                            ? "Cancellation Reason"
+                            : "Reschedule Reason"}{" • "}
+                          {appointment.actionBy === "doctor"
+                            ? "Doctor"
+                            : "Patient"}
+                        </p>
+                        <p className="mt-1 font-medium text-slate-900">
+                          {appointment.actionReason}
+                        </p>
+                      </div>
+                    )}
+
                     {/* View Details */}
                     <div className="mt-5 flex flex-wrap justify-end gap-3 border-t border-gray-100 pt-5">
 
@@ -1727,6 +1816,27 @@ export default function DoctorAppointmentsPage() {
                   </p>
                 </div>
               </section>
+
+              {selectedAppointment.actionReason && selectedAppointment.actionBy && (
+                <section>
+                  <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+                    {selectedAppointment.actionType === "cancelled"
+                      ? "Cancellation Details"
+                      : "Reschedule Details"}
+                  </h3>
+                  <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
+                    <p className="text-sm font-semibold text-amber-800">
+                      {selectedAppointment.actionType === "cancelled"
+                        ? "Cancelled"
+                        : "Rescheduled"}{" "}
+                      by {selectedAppointment.actionBy === "doctor" ? "Doctor" : "Patient"}
+                    </p>
+                    <p className="mt-2 text-sm leading-6 text-amber-700">
+                      {selectedAppointment.actionReason}
+                    </p>
+                  </div>
+                </section>
+              )}
 
               {/* Status */}
               <section>
@@ -2288,6 +2398,32 @@ export default function DoctorAppointmentsPage() {
 
             </div>
 
+            {/* Reschedule Reason */}
+            <div className="border-t border-slate-200 p-6">
+              <label
+                htmlFor="doctor-reschedule-reason"
+                className="text-sm font-semibold text-slate-700"
+              >
+                Reason for Rescheduling
+              </label>
+              <textarea
+                id="doctor-reschedule-reason"
+                value={actionReason}
+                onChange={(event) => {
+                  setActionReason(event.target.value);
+                  if (rescheduleError) {
+                    setRescheduleError("");
+                  }
+                }}
+                rows={4}
+                placeholder="Please explain why this appointment needs to be rescheduled..."
+                className="mt-3 w-full resize-none rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+              />
+              <p className="mt-2 text-xs text-slate-500">
+                This reason will be shared with the patient.
+              </p>
+            </div>
+
             {/* Footer */}
             <div className="flex flex-col gap-3 border-t border-slate-200 bg-slate-50/50 p-6 sm:flex-row sm:justify-end">
 
@@ -2318,6 +2454,108 @@ export default function DoctorAppointmentsPage() {
 
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* ================================================= */}
+      {/* Action Reason Modal */}
+      {/* ================================================= */}
+
+      {reasonDialog && (
+        <div
+          className="fixed inset-0 z-[65] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="cancel-reason-title"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setReasonDialog(null);
+              setReasonError("");
+            }
+          }}
+        >
+          <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+            <div className="flex items-start justify-between gap-4 border-b border-slate-200 bg-slate-50/50 p-6">
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-wide text-red-600">
+                  Cancellation Reason
+                </p>
+                <h2
+                  id="cancel-reason-title"
+                  className="mt-1 text-xl font-bold text-slate-900"
+                >
+                  Why are you cancelling this appointment?
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-slate-500">
+                  This reason will be shared with the patient.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setReasonDialog(null);
+                  setReasonError("");
+                }}
+                aria-label="Close cancellation reason"
+                className="grid size-9 shrink-0 place-items-center rounded-full text-xl text-slate-500 transition-all duration-200 hover:scale-105 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="p-6">
+              <label
+                htmlFor="doctor-cancellation-reason"
+                className="text-sm font-semibold text-slate-700"
+              >
+                Reason
+              </label>
+              {reasonError && (
+                <div
+                  className="mt-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700"
+                  role="alert"
+                >
+                  {reasonError}
+                </div>
+              )}
+
+              <textarea
+                id="doctor-cancellation-reason"
+                value={reasonDialog.reason}
+                onChange={(event) =>
+                  setReasonDialog({
+                    ...reasonDialog,
+                    reason: event.target.value,
+                  })
+                }
+                rows={5}
+                placeholder="e.g. Emergency surgery scheduled."
+                className="mt-3 w-full resize-none rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-red-500 focus:ring-2 focus:ring-red-100"
+                autoFocus
+              />
+            </div>
+
+            <div className="flex flex-col gap-3 border-t border-slate-200 bg-slate-50/50 p-6 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setReasonDialog(null);
+                  setReasonError("");
+                }}
+                className="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700 transition-all duration-200 hover:bg-white hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500 focus-visible:ring-offset-2"
+              >
+                Back
+              </button>
+              <button
+                type="button"
+                onClick={handleCancelReasonSubmit}
+                className="rounded-lg bg-red-600 px-5 py-2.5 text-sm font-semibold text-white transition-all duration-200 hover:bg-red-700 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
+              >
+                Continue
+              </button>
+            </div>
           </div>
         </div>
       )}

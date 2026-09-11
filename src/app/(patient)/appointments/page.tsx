@@ -131,6 +131,12 @@ export default function PatientAppointmentsPage() {
   const [cancelAppointment, setCancelAppointment] =
     useState<Appointment | null>(null);
 
+  const [cancelReason, setCancelReason] =
+    useState("");
+
+  const [cancelReasonError, setCancelReasonError] =
+    useState("");
+
   const [successMessage, setSuccessMessage] =
     useState("");
 
@@ -161,6 +167,12 @@ const [reviewComment, setReviewComment] =
   useState("");
 
   const [rescheduleError, setRescheduleError] =
+  useState("");
+
+  const [rescheduleReason, setRescheduleReason] =
+  useState("");
+
+  const [rescheduleReasonError, setRescheduleReasonError] =
   useState("");
 
   const [rescheduling, setRescheduling] =
@@ -378,6 +390,8 @@ if (!doctorId) {
       setAvailableSlots(slots);
       setSelectedSlotId("");
       setRescheduleError("");
+      setRescheduleReason("");
+      setRescheduleReasonError("");
       setRescheduleAppointment(appointment);
     } catch {
       setRescheduleError(
@@ -391,8 +405,18 @@ if (!doctorId) {
       return;
     }
 
+    const trimmedReason = rescheduleReason.trim();
+
+    if (!trimmedReason) {
+      setRescheduleReasonError(
+        "Please provide a reason for rescheduling."
+      );
+      return;
+    }
+
     setRescheduling(true);
     setRescheduleError("");
+    setRescheduleReasonError("");
 
     try {
       const appointmentIdParts =
@@ -492,6 +516,9 @@ if (!doctorId) {
               ? {
                   ...item,
                   startsAt: newStartsAt,
+                  actionBy: "patient" as const,
+                  actionType: "rescheduled" as const,
+                  actionReason: trimmedReason,
                 }
               : item
         );
@@ -527,7 +554,7 @@ if (!doctorId) {
         userId: doctorId,
         type: "reschedule",
         title: "Appointment Rescheduled",
-        message: `${rescheduleAppointment.patient.name} has rescheduled the appointment with you to ${formatDateTime(newStartsAt)}.`,
+        message: `${rescheduleAppointment.patient.name} has rescheduled the appointment with you to ${formatDateTime(newStartsAt)}. Reason: ${trimmedReason}`,
         appointmentId: rescheduleAppointment.id,
         createdAt: new Date().toISOString(),
         read: false,
@@ -537,6 +564,9 @@ if (!doctorId) {
         rescheduleAppointment.id,
         {
           startsAt: newStartsAt,
+          actionBy: "patient",
+          actionType: "rescheduled",
+          actionReason: trimmedReason,
         }
       );
 
@@ -544,6 +574,8 @@ if (!doctorId) {
       setAvailableSlots([]);
       setSelectedSlotId("");
       setRescheduleError("");
+      setRescheduleReason("");
+      setRescheduleReasonError("");
       setSuccessMessage(
         "Appointment rescheduled successfully."
       );
@@ -565,11 +597,20 @@ if (!doctorId) {
       return;
     }
 
+    setCancelReason("");
+    setCancelReasonError("");
     setCancelAppointment(appointment);
   };
 
   const confirmCancelAppointment = () => {
     if (!cancelAppointment || cancellingId) {
+      return;
+    }
+
+    const trimmedReason = cancelReason.trim();
+
+    if (!trimmedReason) {
+      setCancelReasonError("Please provide a reason for cancelling the appointment.");
       return;
     }
 
@@ -612,6 +653,9 @@ if (!doctorId) {
                   ...item,
                   status:
                     "cancelled" as const,
+                  actionBy: "patient" as const,
+                  actionType: "cancelled" as const,
+                  actionReason: trimmedReason,
                 }
               : item
         );
@@ -713,7 +757,7 @@ if (
           userId: doctorId,
           type: "cancellation",
           title: "Appointment Cancelled",
-          message: `${appointment.patient.name} has cancelled the appointment with you.`,
+          message: `${appointment.patient.name} has cancelled the appointment with you. Reason: ${trimmedReason}`,
           appointmentId: appointment.id,
           createdAt: new Date().toISOString(),
           read: false,
@@ -727,6 +771,9 @@ if (
         appointment.id,
         {
           status: "cancelled",
+          actionBy: "patient",
+          actionType: "cancelled",
+          actionReason: trimmedReason,
         }
       );
     } catch {
@@ -1445,6 +1492,22 @@ if (storedPatient) {
                     </div>
                   )}
 
+                  {/* Cancellation / Reschedule Information */}
+                  {appointment.actionType && appointment.actionReason && (
+                    <div className="mt-5 rounded-xl border border-red-100 bg-red-50/70 p-4">
+                      <p className="text-sm font-bold text-red-800">
+                        {appointment.actionType === "cancelled"
+                          ? `Cancelled by ${appointment.actionBy === "doctor" ? "Doctor" : "Patient"}`
+                          : `Rescheduled by ${appointment.actionBy === "doctor" ? "Doctor" : "Patient"}`}
+                      </p>
+
+                      <p className="mt-1 text-sm leading-6 text-red-700">
+                        <span className="font-semibold">Reason:</span>{" "}
+                        {appointment.actionReason}
+                      </p>
+                    </div>
+                  )}
+
                   {/* Cancelled / Missed */}
                   {(
                     appointment.status ===
@@ -1530,11 +1593,45 @@ if (storedPatient) {
                   </span>
                   ?
                 </p>
+
+                <div className="mt-5">
+                  <label
+                    htmlFor="cancel-reason"
+                    className="mb-2 block text-sm font-semibold text-slate-700"
+                  >
+                    Reason for Cancellation
+                  </label>
+
+                  <textarea
+                    id="cancel-reason"
+                    value={cancelReason}
+                    onChange={(event) => {
+                      setCancelReason(event.target.value);
+                      if (cancelReasonError) {
+                        setCancelReasonError("");
+                      }
+                    }}
+                    placeholder="Please tell us why you want to cancel..."
+                    rows={4}
+                    disabled={cancellingId === cancelAppointment.id}
+                    className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm leading-6 text-slate-700 outline-none transition-all duration-200 placeholder:text-slate-400 focus:border-red-400 focus:ring-2 focus:ring-red-100 disabled:cursor-not-allowed disabled:bg-slate-50"
+                  />
+
+                  {cancelReasonError && (
+                    <p className="mt-2 text-sm font-semibold text-red-600">
+                      {cancelReasonError}
+                    </p>
+                  )}
+                </div>
               </div>
 
               <button
                 type="button"
-                onClick={() => setCancelAppointment(null)}
+                onClick={() => {
+                  setCancelAppointment(null);
+                  setCancelReason("");
+                  setCancelReasonError("");
+                }}
                 className="grid size-9 shrink-0 place-items-center rounded-lg text-2xl text-slate-400 transition-all duration-200 hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
                 aria-label="Close cancel confirmation"
               >
@@ -1545,7 +1642,11 @@ if (storedPatient) {
             <div className="flex gap-3">
               <button
                 type="button"
-                onClick={() => setCancelAppointment(null)}
+                onClick={() => {
+                  setCancelAppointment(null);
+                  setCancelReason("");
+                  setCancelReasonError("");
+                }}
                 disabled={cancellingId === cancelAppointment.id}
                 className="flex-1 rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition-all duration-200 hover:bg-slate-50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
               >
@@ -1826,6 +1927,8 @@ if (storedPatient) {
                     setAvailableSlots([]);
                     setSelectedSlotId("");
                     setRescheduleError("");
+                    setRescheduleReason("");
+                    setRescheduleReasonError("");
                   }}
                   className="grid size-9 place-items-center rounded-lg text-2xl text-slate-400 transition-all duration-200 hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
                   aria-label="Close reschedule"
@@ -1905,6 +2008,40 @@ if (storedPatient) {
                 )}
               </div>
 
+              {/* Reschedule Reason */}
+              <div className="px-6 pb-5">
+                <label
+                  htmlFor="reschedule-reason"
+                  className="mb-2 block text-sm font-semibold text-slate-700"
+                >
+                  Reason for Rescheduling
+                </label>
+
+                <textarea
+                  id="reschedule-reason"
+                  value={rescheduleReason}
+                  onChange={(event) => {
+                    setRescheduleReason(event.target.value);
+                    if (event.target.value.trim()) {
+                      setRescheduleReasonError("");
+                    }
+                  }}
+                  placeholder="Please explain why you want to reschedule this appointment..."
+                  rows={4}
+                  className={`w-full rounded-xl border px-4 py-3 text-sm outline-none transition-all duration-200 focus:ring-2 ${
+                    rescheduleReasonError
+                      ? "border-red-300 focus:border-red-500 focus:ring-red-100"
+                      : "border-slate-200 focus:border-emerald-500 focus:ring-emerald-100"
+                  }`}
+                />
+
+                {rescheduleReasonError && (
+                  <p className="mt-2 text-sm font-semibold text-red-600">
+                    {rescheduleReasonError}
+                  </p>
+                )}
+              </div>
+
               {/* Footer */}
               <div className="flex gap-3 border-t border-slate-200 px-6 py-5">
                 <button
@@ -1914,6 +2051,8 @@ if (storedPatient) {
                     setAvailableSlots([]);
                     setSelectedSlotId("");
                     setRescheduleError("");
+                    setRescheduleReason("");
+                    setRescheduleReasonError("");
                   }}
                   className="flex-1 rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition-all duration-200 hover:bg-slate-50"
                 >

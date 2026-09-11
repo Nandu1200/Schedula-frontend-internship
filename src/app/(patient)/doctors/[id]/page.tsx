@@ -30,6 +30,47 @@ const formatDate = (date: string) => {
   }).format(new Date(`${date}T00:00:00`));
 };
 
+
+type DoctorRating = {
+  average: number;
+  count: number;
+};
+
+const getDoctorIdFromAppointmentId = (appointmentId: string) => {
+  const appointmentIdParts = appointmentId.split("-");
+  const slotIndex = appointmentIdParts.indexOf("slot");
+  const doctorIndex = appointmentIdParts.indexOf("doctor");
+
+  if (doctorIndex === -1 || slotIndex === -1) {
+    return null;
+  }
+
+  const doctorId = appointmentIdParts
+    .slice(doctorIndex, slotIndex)
+    .join("-");
+
+  return doctorId || null;
+};
+
+const getMockDoctorRatings = () => {
+  const demoRatings = [
+    { average: 4.5, count: 24 },
+    { average: 4.7, count: 31 },
+    { average: 4.3, count: 18 },
+    { average: 4.8, count: 27 },
+    { average: 4.1, count: 15 },
+  ];
+
+  return mockDoctors.reduce<Record<string, DoctorRating>>(
+    (ratings, doctor, index) => {
+      ratings[doctor.id] =
+        demoRatings[index % demoRatings.length];
+      return ratings;
+    },
+    {}
+  );
+};
+
 export default function DoctorDetailsPage() {
   const params = useParams();
   const searchParams = useSearchParams();
@@ -42,6 +83,8 @@ export default function DoctorDetailsPage() {
 
   const [doctor, setDoctor] = useState<Doctor | null>(null);
   const [slots, setSlots] = useState<AvailabilitySlot[]>([]);
+  const [doctorRating, setDoctorRating] =
+    useState<DoctorRating | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -80,6 +123,75 @@ export default function DoctorDetailsPage() {
         }
 
         setDoctor(selectedDoctor);
+
+        const storedAppointments =
+          localStorage.getItem("appointments");
+
+        if (storedAppointments) {
+          try {
+            const parsedAppointments = JSON.parse(
+              storedAppointments
+            ) as Array<{
+              id?: string;
+              status?: string;
+              review?: { rating?: number };
+            }>;
+
+            let totalRating = 0;
+            let reviewCount = 0;
+
+            parsedAppointments.forEach((appointment) => {
+              const rating = appointment.review?.rating;
+
+              if (
+                appointment.status !== "completed" ||
+                typeof rating !== "number" ||
+                rating < 1 ||
+                rating > 5 ||
+                !appointment.id
+              ) {
+                return;
+              }
+
+              const appointmentDoctorId =
+                getDoctorIdFromAppointmentId(
+                  appointment.id
+                );
+
+              if (
+                appointmentDoctorId !== selectedDoctor.id
+              ) {
+                return;
+              }
+
+              totalRating += rating;
+              reviewCount += 1;
+            });
+
+            const calculatedRating =
+              reviewCount > 0
+                ? {
+                    average: Number(
+                      (totalRating / reviewCount).toFixed(1)
+                    ),
+                    count: reviewCount,
+                  }
+                : null;
+
+            const mockRating =
+              getMockDoctorRatings()[selectedDoctor.id];
+
+            setDoctorRating(calculatedRating ?? mockRating ?? null);
+          } catch {
+            setDoctorRating(
+              getMockDoctorRatings()[selectedDoctor.id] ?? null
+            );
+          }
+        } else {
+          setDoctorRating(
+            getMockDoctorRatings()[selectedDoctor.id] ?? null
+          );
+        }
 
         const storedSlots = localStorage.getItem(
           `availabilitySlots-${selectedDoctor.id}`
@@ -250,6 +362,37 @@ export default function DoctorDetailsPage() {
                   <p className="mt-2 text-lg font-semibold text-emerald-700">
                     {doctor.specialty}
                   </p>
+
+                  {doctorRating ? (
+                    <div className="mt-3 flex items-center gap-2">
+                      <span className="text-lg font-bold text-slate-900">
+                        {doctorRating.average.toFixed(1)}
+                      </span>
+
+                      <span
+                        className="text-base tracking-wide text-yellow-500"
+                        aria-label={`${doctorRating.average} out of 5 stars`}
+                      >
+                        {Array.from({ length: 5 }, (_, index) =>
+                          index < Math.round(doctorRating.average)
+                            ? "★"
+                            : "☆"
+                        ).join("")}
+                      </span>
+
+                      <span className="text-sm text-slate-500">
+                        ({doctorRating.count}{" "}
+                        {doctorRating.count === 1
+                          ? "review"
+                          : "reviews"}
+                        )
+                      </span>
+                    </div>
+                  ) : (
+                    <p className="mt-3 text-sm font-medium text-slate-400">
+                      No ratings yet
+                    </p>
+                  )}
                 </div>
 
                 <div className="rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-emerald-100/70 px-5 py-3 shadow-sm">
