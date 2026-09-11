@@ -1,4 +1,6 @@
-﻿export type AppointmentStatus =
+﻿import type { Prescription } from "@/types/prescription";
+
+export type AppointmentStatus =
   | "pending"
   | "confirmed"
   | "upcoming"
@@ -8,12 +10,14 @@
 
 export type Appointment = {
   id: string;
- patient: {
-  id?: string;
-  name: string;
-  initials: string;
-  age: number;
-};
+
+  patient: {
+    id?: string;
+    name: string;
+    initials: string;
+    age: number;
+  };
+
   clinician: string;
   specialty: string;
   startsAt: string;
@@ -21,4 +25,23 @@ export type Appointment = {
   status: AppointmentStatus;
   reason: string;
   room: string;
+
+  prescription?: Prescription;
+
+  review?: {
+    rating: number;
+    comment: string;
+  };
+
+  actionBy?: "doctor" | "patient";
+
+  actionType?: "cancelled" | "rescheduled";
+
+  actionReason?: string;
+
+  followUp?: {
+    recommended: boolean;
+    afterDays?: number;
+    note?: string;
+  };
 };
