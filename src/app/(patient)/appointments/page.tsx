@@ -79,6 +79,30 @@ const getAppointmentType = (
   );
 };
 
+const getPaymentMethodLabel = (method?: NonNullable<Appointment["payment"]>["method"]) => {
+  switch (method) {
+    case "upi":
+      return "UPI";
+    case "card":
+      return "Card";
+    case "netbanking":
+      return "Net Banking";
+    default:
+      return "Not available";
+  }
+};
+
+const getPaymentStatusStyles = (status?: NonNullable<Appointment["payment"]>["status"]) => {
+  switch (status) {
+    case "paid":
+      return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    case "failed":
+      return "border-red-200 bg-red-50 text-red-700";
+    default:
+      return "border-amber-200 bg-amber-50 text-amber-700";
+  }
+};
+
 const getFollowUpDate = (
   startsAt: string,
   afterDays: number
@@ -153,6 +177,9 @@ const [reviewRating, setReviewRating] =
 
 const [reviewComment, setReviewComment] =
   useState("");
+
+const [reviewSuccess, setReviewSuccess] =
+  useState(false);
 
   const [prescriptionAppointment, setPrescriptionAppointment] =
   useState<Appointment | null>(null);
@@ -890,25 +917,42 @@ const handleSubmitReview = () => {
     return;
   }
 
-  if (reviewRating === 0) {
-    window.alert("Please select a rating.");
+  // Rating must be a valid whole number between 1 and 5.
+  if (
+    !Number.isInteger(reviewRating) ||
+    reviewRating < 1 ||
+    reviewRating > 5
+  ) {
+    window.alert("Please select a rating between 1 and 5.");
     return;
   }
+
+  // Prevent duplicate reviews for the same appointment.
+  if (reviewAppointment.review) {
+    window.alert("This appointment has already been reviewed.");
+    return;
+  }
+
+  /*
+   * Appointment IDs follow this format:
+   *
+   * appointment-doctorId-slotId
+   *
+   * The doctor ID is everything between the appointment prefix
+   * and the slot segment.
+   */
   const appointmentIdParts =
-  reviewAppointment.id.split("-");
+    reviewAppointment.id.split("-");
 
-const slotIndex =
-  appointmentIdParts.indexOf("slot");
+  const slotIndex =
+    appointmentIdParts.indexOf("slot");
 
-const doctorIndex =
-  appointmentIdParts.indexOf("doctor");
-
-const doctorId =
-  doctorIndex !== -1 && slotIndex !== -1
-    ? appointmentIdParts
-        .slice(doctorIndex, slotIndex)
-        .join("-")
-    : null;
+  const doctorId =
+    slotIndex > 1
+      ? appointmentIdParts
+          .slice(1, slotIndex)
+          .join("-")
+      : null;
 
   const allAppointments = JSON.parse(
     localStorage.getItem("appointments") || "[]"
@@ -933,46 +977,46 @@ const doctorId =
   );
 
   if (doctorId) {
-  addNotification({
-    id: `notification-${Date.now()}-review`,
-    userId: doctorId,
-    type: "completed",
-    title: "New Patient Review",
-    message: `${reviewAppointment.patient.name} has submitted a review for your appointment.`,
-    appointmentId: reviewAppointment.id,
-    createdAt: new Date().toISOString(),
-    read: false,
-  });
-}
+    addNotification({
+      id: `notification-${Date.now()}-review`,
+      userId: doctorId,
+      type: "completed",
+      title: "New Patient Review",
+      message: `${reviewAppointment.patient.name} has submitted a review for your appointment.`,
+      appointmentId: reviewAppointment.id,
+      createdAt: new Date().toISOString(),
+      read: false,
+    });
+  }
 
   const storedPatient =
-  localStorage.getItem("loggedInPatient");
+    localStorage.getItem("loggedInPatient");
 
-if (storedPatient) {
-  const patient = JSON.parse(
-    storedPatient
-  ) as LoggedInPatient;
+  if (storedPatient) {
+    const patient = JSON.parse(
+      storedPatient
+    ) as LoggedInPatient;
 
-  dispatch(
-    setAppointments(
-      updatedAppointments.filter(
-      (appointment) =>
-        appointment.patient.name
-          .trim()
-          .toLowerCase() ===
-        patient.name.trim().toLowerCase()
+    dispatch(
+      setAppointments(
+        updatedAppointments.filter(
+          (appointment) =>
+            appointment.patient.name
+              .trim()
+              .toLowerCase() ===
+            patient.name.trim().toLowerCase()
+        )
       )
-    )
-  );
-}
+    );
+  }
 
   setReviewAppointment(null);
   setReviewRating(0);
   setReviewComment("");
-
-  window.alert("Review submitted successfully.");
+  setReviewSuccess(true);
 };
- const handleRebookAppointment = (
+
+  const handleRebookAppointment = (
   appointment: Appointment
 ) => {
   /*
@@ -1251,6 +1295,51 @@ if (storedPatient) {
 
                   </div>
 
+                  {/* Payment */}
+                  <div className="mt-5 rounded-2xl border border-slate-200 bg-gradient-to-r from-slate-50 to-white p-4 shadow-sm">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          Payment
+                        </p>
+                        <div className="mt-1 flex flex-wrap items-center gap-2">
+                          <span
+                            className={`rounded-full border px-2.5 py-1 text-xs font-bold capitalize ${getPaymentStatusStyles(appointment.payment?.status)}`}
+                          >
+                            {appointment.payment?.status ?? "Pending"}
+                          </span>
+                          {appointment.payment?.method && (
+                            <span className="text-sm font-semibold text-slate-700">
+                              {getPaymentMethodLabel(appointment.payment.method)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="text-left sm:text-right">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          Amount
+                        </p>
+                        <p className="mt-1 text-lg font-bold text-slate-900">
+                          {appointment.payment?.amount != null
+                            ? `₹${appointment.payment.amount}`
+                            : "Not available"}
+                        </p>
+                      </div>
+                    </div>
+
+                    {appointment.payment?.transactionId && (
+                      <div className="mt-3 border-t border-slate-200 pt-3">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          Transaction ID
+                        </p>
+                        <p className="mt-1 break-all text-sm font-semibold text-slate-700">
+                          {appointment.payment.transactionId}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
                   {/* Reason */}
                   <div className="mt-5 border-t border-slate-100 pt-5">
 
@@ -1444,18 +1533,19 @@ if (storedPatient) {
                         </button>
 
                         <button
-  type="button"
-  onClick={() =>
-    handleReviewDoctor(
-      appointment
-    )
-  }
-  className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm font-semibold text-emerald-700 transition-all duration-200 hover:-translate-y-0.5 hover:bg-emerald-100 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
->
-  {appointment.review
-    ? "Edit Review"
-    : "Review Doctor"}
-</button>
+                          type="button"
+                          onClick={() =>
+                            handleReviewDoctor(
+                              appointment
+                            )
+                          }
+                          disabled={Boolean(appointment.review)}
+                          className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm font-semibold text-emerald-700 transition-all duration-200 hover:-translate-y-0.5 hover:bg-emerald-100 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-default disabled:opacity-100"
+                        >
+                          {appointment.review
+                            ? "Reviewed ★"
+                            : "Review Doctor"}
+                        </button>
 {appointment.review && (
   <div className="col-span-full rounded-xl border border-emerald-100 bg-emerald-50 p-4 shadow-sm">
     <p className="text-sm font-semibold text-emerald-800">
@@ -1759,6 +1849,38 @@ if (storedPatient) {
                   Submit Review
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {reviewSuccess && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/55 px-4 py-6 backdrop-blur-sm">
+            <div className="w-full max-w-md rounded-3xl border border-emerald-100 bg-white p-7 text-center shadow-2xl sm:p-8">
+              <div className="mx-auto mb-5 grid size-16 place-items-center rounded-full bg-emerald-100 text-3xl text-emerald-600">
+                ✓
+              </div>
+
+              <h2 className="text-2xl font-bold tracking-tight text-slate-900">
+                Review Submitted Successfully!
+              </h2>
+
+              <p className="mt-3 text-sm leading-6 text-slate-500">
+                Thank you for sharing your feedback. Your review has been submitted successfully.
+              </p>
+
+              <div className="mt-5 rounded-2xl bg-emerald-50 px-4 py-3">
+                <p className="text-sm font-semibold text-emerald-700">
+                  Your feedback helps improve the patient experience.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setReviewSuccess(false)}
+                className="mt-6 w-full rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-emerald-700 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+              >
+                Done
+              </button>
             </div>
           </div>
         )}

@@ -46,6 +46,14 @@ function BookingContent() {
   const [message, setMessage] = useState("");
   const [confirming, setConfirming] = useState(false);
 
+  const [paymentOpen, setPaymentOpen] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<
+    "upi" | "card" | "netbanking"
+  >("upi");
+  const [paymentProcessing, setPaymentProcessing] = useState(false);
+  const [paymentSuccess, setPaymentSuccess] = useState(false);
+  const [paymentTransactionId, setPaymentTransactionId] = useState("");
+
   const confirmLock = useRef(false);
 
   useEffect(() => {
@@ -147,7 +155,7 @@ function BookingContent() {
     loadBookingData();
   }, [doctorId, slotId]);
 
-  const handleConfirm = () => {
+  const createAppointmentWithPayment = (transactionId: string) => {
     if (confirmLock.current) {
       return;
     }
@@ -305,6 +313,14 @@ function BookingContent() {
       },
 
       reason: "General consultation",
+
+      payment: {
+        status: "paid",
+        amount: selectedDoctor.consultationFee,
+        method: paymentMethod,
+        transactionId,
+        paidAt: new Date().toISOString(),
+      },
     };
 
     /*
@@ -434,6 +450,43 @@ function BookingContent() {
 
     setConfirmed(true);
     setConfirming(false);
+    setPaymentSuccess(true);
+  };
+
+  const handleProceedToPayment = () => {
+    if (!selectedDoctor || !selectedSlot) {
+      return;
+    }
+
+    const storedPatient = localStorage.getItem("loggedInPatient");
+
+    if (!storedPatient) {
+      setMessage(
+        "Please login as a patient before booking an appointment."
+      );
+      return;
+    }
+
+    setMessage("");
+    setPaymentOpen(true);
+  };
+
+  const handlePayment = () => {
+    if (paymentProcessing || !selectedDoctor || !selectedSlot) {
+      return;
+    }
+
+    setPaymentProcessing(true);
+    setMessage("");
+
+    window.setTimeout(() => {
+      const transactionId = `TXN-${Date.now().toString().slice(-8)}`;
+
+      setPaymentTransactionId(transactionId);
+      setPaymentProcessing(false);
+
+      createAppointmentWithPayment(transactionId);
+    }, 1200);
   };
 
   if (loading) {
@@ -608,13 +661,11 @@ function BookingContent() {
             {/* Confirm */}
             <button
               type="button"
-              onClick={handleConfirm}
-              disabled={confirming}
+              onClick={handleProceedToPayment}
+              disabled={confirming || paymentProcessing}
               className="mt-7 w-full rounded-xl bg-emerald-600 px-5 py-3.5 text-sm font-bold text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-emerald-700 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
             >
-              {confirming
-                ? "Submitting Appointment..."
-                : "Request Appointment"}
+              Continue to Payment
             </button>
           </div>
         ) : (
@@ -718,6 +769,191 @@ function BookingContent() {
           </div>
         )}
       </section>
+
+      {paymentOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 py-6 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="payment-title"
+        >
+          <div className="w-full max-w-md overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl">
+            {!paymentSuccess ? (
+              <>
+                <div className="border-b border-slate-100 px-5 py-5 sm:px-6">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-[0.16em] text-emerald-600">
+                        Secure Checkout
+                      </p>
+                      <h2
+                        id="payment-title"
+                        className="mt-1 text-2xl font-bold tracking-tight text-slate-900"
+                      >
+                        Complete Payment
+                      </h2>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setPaymentOpen(false)}
+                      disabled={paymentProcessing}
+                      aria-label="Close payment"
+                      className="grid size-9 place-items-center rounded-full border border-slate-200 text-lg font-semibold text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      ×
+                    </button>
+                  </div>
+                </div>
+
+                <div className="p-5 sm:p-6">
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <p className="text-sm font-bold text-slate-900">
+                          Doctor Consultation
+                        </p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          {selectedDoctor.name}
+                        </p>
+                      </div>
+
+                      <p className="text-xl font-bold text-slate-900">
+                        ₹{selectedDoctor.consultationFee}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-6">
+                    <p className="text-sm font-bold text-slate-900">
+                      Select payment method
+                    </p>
+
+                    <div className="mt-3 grid gap-3">
+                      {[
+                        {
+                          value: "upi" as const,
+                          title: "UPI",
+                          description: "Pay using UPI",
+                        },
+                        {
+                          value: "card" as const,
+                          title: "Card",
+                          description: "Credit or debit card",
+                        },
+                        {
+                          value: "netbanking" as const,
+                          title: "Net Banking",
+                          description: "Pay through your bank",
+                        },
+                      ].map((method) => (
+                        <button
+                          key={method.value}
+                          type="button"
+                          onClick={() => setPaymentMethod(method.value)}
+                          disabled={paymentProcessing}
+                          className={`flex items-center justify-between rounded-2xl border p-4 text-left transition-all duration-200 ${
+                            paymentMethod === method.value
+                              ? "border-emerald-500 bg-emerald-50 ring-2 ring-emerald-100"
+                              : "border-slate-200 bg-white hover:border-emerald-200 hover:bg-emerald-50/30"
+                          }`}
+                        >
+                          <div>
+                            <p className="text-sm font-bold text-slate-900">
+                              {method.title}
+                            </p>
+                            <p className="mt-1 text-xs text-slate-500">
+                              {method.description}
+                            </p>
+                          </div>
+
+                          <span
+                            className={`grid size-5 place-items-center rounded-full border ${
+                              paymentMethod === method.value
+                                ? "border-emerald-600"
+                                : "border-slate-300"
+                            }`}
+                          >
+                            {paymentMethod === method.value && (
+                              <span className="size-2.5 rounded-full bg-emerald-600" />
+                            )}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handlePayment}
+                    disabled={paymentProcessing}
+                    className="mt-6 w-full rounded-xl bg-emerald-600 px-5 py-3.5 text-sm font-bold text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-emerald-700 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+                  >
+                    {paymentProcessing
+                      ? "Processing Payment..."
+                      : `Pay ₹${selectedDoctor.consultationFee}`}
+                  </button>
+
+                  <p className="mt-3 text-center text-xs leading-5 text-slate-400">
+                    This is a secure payment simulation for the application.
+                  </p>
+                </div>
+              </>
+            ) : (
+              <div className="p-6 text-center sm:p-8">
+                <div className="mx-auto grid size-16 place-items-center rounded-full border border-emerald-200 bg-emerald-100 text-2xl font-bold text-emerald-700">
+                  ✓
+                </div>
+
+                <p className="mt-5 text-xs font-bold uppercase tracking-[0.16em] text-emerald-600">
+                  Payment Successful
+                </p>
+
+                <h2 className="mt-2 text-2xl font-bold tracking-tight text-slate-900">
+                  Payment Completed
+                </h2>
+
+                <p className="mt-2 text-sm leading-6 text-slate-500">
+                  Your payment has been recorded and your appointment request has been submitted.
+                </p>
+
+                <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left">
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-sm text-slate-500">Amount Paid</span>
+                    <span className="text-sm font-bold text-slate-900">
+                      ₹{selectedDoctor.consultationFee}
+                    </span>
+                  </div>
+
+                  <div className="mt-3 flex items-center justify-between gap-4">
+                    <span className="text-sm text-slate-500">Method</span>
+                    <span className="text-sm font-semibold uppercase text-slate-900">
+                      {paymentMethod === "netbanking"
+                        ? "Net Banking"
+                        : paymentMethod}
+                    </span>
+                  </div>
+
+                  <div className="mt-3 flex items-center justify-between gap-4">
+                    <span className="text-sm text-slate-500">Transaction ID</span>
+                    <span className="text-right text-xs font-semibold text-slate-900">
+                      {paymentTransactionId}
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setPaymentOpen(false)}
+                  className="mt-6 w-full rounded-xl bg-emerald-600 px-5 py-3.5 text-sm font-bold text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-emerald-700 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+                >
+                  Continue
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </main>
   );
 }

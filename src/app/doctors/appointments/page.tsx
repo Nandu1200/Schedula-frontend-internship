@@ -1397,6 +1397,53 @@ export default function DoctorAppointmentsPage() {
 
                     </div>
 
+                    {/* Payment */}
+                    <div className="mt-5 border-t border-gray-100 pt-5">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <p className="text-sm text-gray-500">
+                            Payment
+                          </p>
+                          <div className="mt-1 flex flex-wrap items-center gap-2">
+                            <span
+                              className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold ${
+                                appointment.payment?.status === "paid"
+                                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                  : appointment.payment?.status === "failed"
+                                  ? "border-red-200 bg-red-50 text-red-700"
+                                  : "border-amber-200 bg-amber-50 text-amber-700"
+                              }`}
+                            >
+                              {appointment.payment?.status === "paid"
+                                ? "Paid"
+                                : appointment.payment?.status === "failed"
+                                ? "Failed"
+                                : "Pending"}
+                            </span>
+
+                            {appointment.payment && (
+                              <span className="text-xs text-slate-500">
+                                {appointment.payment.method === "netbanking"
+                                  ? "Net Banking"
+                                  : appointment.payment.method.toUpperCase()}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="sm:text-right">
+                          <p className="text-sm text-gray-500">
+                            Amount
+                          </p>
+                          <p className="mt-1 font-semibold text-slate-900">
+                            {appointment.payment
+                              ? `₹${appointment.payment.amount}`
+                              : "Not available"}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
                     {/* Reason */}
                     <div className="mt-5 border-t border-gray-100 pt-5">
 
@@ -1837,6 +1884,86 @@ export default function DoctorAppointmentsPage() {
                   </div>
                 </section>
               )}
+
+              {/* Payment Details */}
+              <section>
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+                  Payment Details
+                </h3>
+
+                {selectedAppointment.payment ? (
+                  <div className="mt-3 grid gap-4 rounded-xl border border-emerald-200 bg-emerald-50/40 p-4 sm:grid-cols-2">
+                    <div>
+                      <p className="text-sm text-slate-500">
+                        Payment Status
+                      </p>
+                      <span
+                        className={`mt-1 inline-flex rounded-full border px-3 py-1 text-xs font-bold ${
+                          selectedAppointment.payment.status === "paid"
+                            ? "border-emerald-200 bg-emerald-100 text-emerald-700"
+                            : selectedAppointment.payment.status === "failed"
+                            ? "border-red-200 bg-red-100 text-red-700"
+                            : "border-amber-200 bg-amber-100 text-amber-700"
+                        }`}
+                      >
+                        {selectedAppointment.payment.status === "paid"
+                          ? "Paid"
+                          : selectedAppointment.payment.status === "failed"
+                          ? "Failed"
+                          : "Pending"}
+                      </span>
+                    </div>
+
+                    <div>
+                      <p className="text-sm text-slate-500">
+                        Amount
+                      </p>
+                      <p className="mt-1 font-semibold text-slate-900">
+                        ₹{selectedAppointment.payment.amount}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-sm text-slate-500">
+                        Payment Method
+                      </p>
+                      <p className="mt-1 font-semibold text-slate-900">
+                        {selectedAppointment.payment.method === "netbanking"
+                          ? "Net Banking"
+                          : selectedAppointment.payment.method.toUpperCase()}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-sm text-slate-500">
+                        Transaction ID
+                      </p>
+                      <p className="mt-1 break-all text-sm font-semibold text-slate-900">
+                        {selectedAppointment.payment.transactionId}
+                      </p>
+                    </div>
+
+                    {selectedAppointment.payment.paidAt && (
+                      <div className="sm:col-span-2">
+                        <p className="text-sm text-slate-500">
+                          Paid At
+                        </p>
+                        <p className="mt-1 text-sm font-semibold text-slate-900">
+                          {formatDateTime(
+                            selectedAppointment.payment.paidAt
+                          )}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <p className="text-sm text-slate-500">
+                      No payment information is available for this appointment.
+                    </p>
+                  </div>
+                )}
+              </section>
 
               {/* Status */}
               <section>

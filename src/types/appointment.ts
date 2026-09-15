@@ -8,16 +8,26 @@ export type AppointmentStatus =
   | "cancelled"
   | "missed";
 
+export type PaymentMethod = "upi" | "card" | "netbanking";
+
+export type PaymentStatus = "pending" | "paid" | "failed";
+
+export type AppointmentPayment = {
+  status: PaymentStatus;
+  amount: number;
+  method: PaymentMethod;
+  transactionId: string;
+  paidAt?: string;
+};
+
 export type Appointment = {
   id: string;
-
   patient: {
     id?: string;
     name: string;
     initials: string;
     age: number;
   };
-
   clinician: string;
   specialty: string;
   startsAt: string;
@@ -25,6 +35,8 @@ export type Appointment = {
   status: AppointmentStatus;
   reason: string;
   room: string;
+
+  payment?: AppointmentPayment;
 
   prescription?: Prescription;
 
@@ -34,9 +46,7 @@ export type Appointment = {
   };
 
   actionBy?: "doctor" | "patient";
-
   actionType?: "cancelled" | "rescheduled";
-
   actionReason?: string;
 
   followUp?: {
