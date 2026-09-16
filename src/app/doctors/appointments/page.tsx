@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
@@ -127,6 +128,7 @@ export default function DoctorAppointmentsPage() {
   );
 
   const dispatch = useAppDispatch();
+  const router = useRouter();
 
   const setStoreAppointments = (appointments: Appointment[]) => {
     dispatch(setAppointments(appointments));
@@ -1280,6 +1282,19 @@ export default function DoctorAppointmentsPage() {
                     "confirmed" &&
                   appointmentStarted;
 
+                const consultationStartsAt =
+                  new Date(appointment.startsAt).getTime();
+
+                const minutesUntilConsultation =
+                  (consultationStartsAt - currentTime) /
+                  (60 * 1000);
+
+                const canStartOnlineConsultation =
+                  appointment.status === "confirmed" &&
+                  appointment.consultationType === "online" &&
+                  currentTime > 0 &&
+                  minutesUntilConsultation <= 5;
+
                 const category =
                   getAppointmentCategory(
                     appointment,
@@ -1381,7 +1396,9 @@ export default function DoctorAppointmentsPage() {
                         </p>
 
                         <p className="mt-1 font-medium text-slate-900">
-                          Consultation
+                          {appointment.consultationType === "online"
+                            ? "Online Consultation"
+                            : "In-person Consultation"}
                         </p>
                       </div>
 
@@ -1499,6 +1516,20 @@ export default function DoctorAppointmentsPage() {
                           className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition-all duration-200 hover:bg-emerald-700 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
                         >
                           Reschedule
+                        </button>
+                      )}
+
+                      {canStartOnlineConsultation && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            router.push(
+                              `/doctors/consultation/${encodeURIComponent(appointment.id)}`
+                            )
+                          }
+                          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-all duration-200 hover:bg-blue-700 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                        >
+                          Start Consultation
                         </button>
                       )}
 
@@ -1830,7 +1861,9 @@ export default function DoctorAppointmentsPage() {
                     </p>
 
                     <p className="mt-1 font-semibold text-slate-900">
-                      Consultation
+                      {selectedAppointment.consultationType === "online"
+                        ? "Online Consultation"
+                        : "In-person Consultation"}
                     </p>
                   </div>
 

@@ -201,11 +201,61 @@ export default function DoctorDetailsPage() {
           const parsedSlots =
             JSON.parse(storedSlots) as AvailabilitySlot[];
 
+          const storedAppointments =
+            localStorage.getItem("appointments");
+
+          let bookedSlotKeys = new Set<string>();
+
+          if (storedAppointments) {
+            try {
+              const parsedAppointments = JSON.parse(
+                storedAppointments
+              ) as Array<{
+                id?: string;
+                status?: string;
+                startsAt?: string;
+              }>;
+
+              bookedSlotKeys = new Set(
+                parsedAppointments
+                  .filter(
+                    (appointment) =>
+                      appointment.status !== "cancelled" &&
+                      typeof appointment.id === "string" &&
+                      typeof appointment.startsAt === "string" &&
+                      getDoctorIdFromAppointmentId(
+                        appointment.id
+                      ) === selectedDoctor.id
+                  )
+                  .map((appointment) => {
+                    const startsAt = new Date(
+                      appointment.startsAt as string
+                    );
+
+                    const date = startsAt
+                      .toISOString()
+                      .slice(0, 10);
+
+                    const time = startsAt
+                      .toTimeString()
+                      .slice(0, 5);
+
+                    return `${date}|${time}`;
+                  })
+              );
+            } catch {
+              bookedSlotKeys = new Set<string>();
+            }
+          }
+
           const availableSlots = parsedSlots
             .filter(
               (slot) =>
                 slot.doctorId === selectedDoctor.id &&
                 slot.status === "available" &&
+                !bookedSlotKeys.has(
+                  `${slot.date}|${slot.startTime}`
+                ) &&
                 (!followUpDate ||
                   slot.date >= followUpDate)
             )
@@ -397,12 +447,24 @@ export default function DoctorDetailsPage() {
 
                 <div className="rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-emerald-100/70 px-5 py-3 shadow-sm">
                   <p className="text-xs text-slate-500">
-                    Consultation Fee
+                    Consultation Fees
                   </p>
 
-                  <p className="mt-1 text-xl font-bold">
-                    ₹{doctor.consultationFee}
-                  </p>
+                  <div className="mt-1 space-y-1">
+                    <p className="text-sm font-semibold text-slate-700">
+                      Online:{" "}
+                      <span className="text-lg font-bold text-slate-900">
+                        ₹{doctor.onlineFee}
+                      </span>
+                    </p>
+
+                    <p className="text-sm font-semibold text-slate-700">
+                      In-person:{" "}
+                      <span className="text-lg font-bold text-slate-900">
+                        ₹{doctor.inPersonFee}
+                      </span>
+                    </p>
+                  </div>
                 </div>
 
               </div>

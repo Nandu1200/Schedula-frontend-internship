@@ -21,6 +21,8 @@ type DoctorProfile = {
   hospital: string;
   location: string;
   consultationFee: number;
+  onlineFee?: number;
+  inPersonFee?: number;
 };
 
 function formatDate(date: string) {
@@ -179,8 +181,28 @@ export default function DoctorProfilePage() {
 
       if (storedDoctor) {
         try {
-          const doctor =
+          const storedProfile =
             JSON.parse(storedDoctor) as DoctorProfile;
+
+          /*
+           * Keep older doctor profiles compatible.
+           * If the new consultation fees are missing,
+           * use the existing consultation fee for both.
+           */
+          const doctor: DoctorProfile = {
+            ...storedProfile,
+            onlineFee:
+              typeof storedProfile.onlineFee === "number"
+                ? storedProfile.onlineFee
+                : Number(storedProfile.consultationFee ?? 0),
+            inPersonFee:
+              typeof storedProfile.inPersonFee === "number"
+                ? storedProfile.inPersonFee
+                : Number(storedProfile.consultationFee ?? 0),
+            consultationFee: Number(
+              storedProfile.consultationFee ?? 0
+            ),
+          };
 
           setProfile(doctor);
           setFormData(doctor);
@@ -243,7 +265,9 @@ export default function DoctorProfilePage() {
       ...formData,
       [field]:
         field === "experienceYears" ||
-        field === "consultationFee"
+        field === "consultationFee" ||
+        field === "onlineFee" ||
+        field === "inPersonFee"
           ? Number(value)
           : value,
     });
@@ -258,17 +282,31 @@ export default function DoctorProfilePage() {
 
     if (!formData) return;
 
+    const updatedProfile: DoctorProfile = {
+      ...formData,
+      onlineFee: Number(
+        formData.onlineFee ?? formData.consultationFee ?? 0
+      ),
+      inPersonFee: Number(
+        formData.inPersonFee ?? formData.consultationFee ?? 0
+      ),
+      consultationFee: Number(
+        formData.inPersonFee ?? formData.consultationFee ?? 0
+      ),
+    };
+
     localStorage.setItem(
       "loggedInDoctor",
-      JSON.stringify(formData)
+      JSON.stringify(updatedProfile)
     );
 
     localStorage.setItem(
       "registeredDoctor",
-      JSON.stringify(formData)
+      JSON.stringify(updatedProfile)
     );
 
-    setProfile(formData);
+    setProfile(updatedProfile);
+    setFormData(updatedProfile);
     setEditing(false);
     setMessage(
       "Profile updated successfully."
@@ -754,8 +792,13 @@ export default function DoctorProfilePage() {
                 ],
                 ["location", "Location", "text"],
                 [
-                  "consultationFee",
-                  "Consultation Fee (₹)",
+                  "onlineFee",
+                  "Online Consultation Fee (₹)",
+                  "number",
+                ],
+                [
+                  "inPersonFee",
+                  "In-person Consultation Fee (₹)",
                   "number",
                 ],
               ] as const).map(
@@ -779,8 +822,8 @@ export default function DoctorProfilePage() {
                         field ===
                         "experienceYears"
                           ? 0
-                          : field ===
-                              "consultationFee"
+                          : field === "onlineFee" ||
+                              field === "inPersonFee"
                             ? 1
                             : undefined
                       }

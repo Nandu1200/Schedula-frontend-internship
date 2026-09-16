@@ -16,7 +16,10 @@ import { useAppDispatch } from "@/store/hooks";
 import { setAppointments } from "@/store/appointmentSlice";
 
 import type { Doctor } from "@/types/doctor";
-import type { Appointment } from "@/types/appointment";
+import type {
+  Appointment,
+  ConsultationType,
+} from "@/types/appointment";
 import type { AvailabilitySlot } from "@/types/availability";
 
 type LoggedInPatient = {
@@ -41,6 +44,9 @@ function BookingContent() {
   const [selectedSlot, setSelectedSlot] =
     useState<AvailabilitySlot | null>(null);
 
+  const [consultationType, setConsultationType] =
+    useState<ConsultationType>("in-person");
+
   const [confirmed, setConfirmed] = useState(false);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
@@ -55,6 +61,11 @@ function BookingContent() {
   const [paymentTransactionId, setPaymentTransactionId] = useState("");
 
   const confirmLock = useRef(false);
+
+  const selectedFee =
+    consultationType === "online"
+      ? selectedDoctor?.onlineFee ?? 0
+      : selectedDoctor?.inPersonFee ?? 0;
 
   useEffect(() => {
     const loadBookingData = () => {
@@ -155,7 +166,9 @@ function BookingContent() {
     loadBookingData();
   }, [doctorId, slotId]);
 
-  const createAppointmentWithPayment = (transactionId: string) => {
+  const createAppointmentWithPayment = (
+    transactionId: string
+  ) => {
     if (confirmLock.current) {
       return;
     }
@@ -296,7 +309,12 @@ function BookingContent() {
       startsAt: startsAt.toISOString(),
       durationMinutes,
       status: "pending",
-      room: "Consultation Room",
+      room:
+        consultationType === "online"
+          ? "Online Consultation"
+          : "Consultation Room",
+
+      consultationType,
 
       patient: {
         id: patient.id,
@@ -316,7 +334,7 @@ function BookingContent() {
 
       payment: {
         status: "paid",
-        amount: selectedDoctor.consultationFee,
+        amount: selectedFee,
         method: paymentMethod,
         transactionId,
         paidAt: new Date().toISOString(),
@@ -420,7 +438,7 @@ function BookingContent() {
       userId: patient.id,
       type: "booking",
       title: "Appointment Requested",
-      message: `Your appointment with ${selectedDoctor.name} has been requested and is waiting for doctor confirmation.`,
+      message: `Your ${consultationType === "online" ? "online" : "in-person"} appointment with ${selectedDoctor.name} has been requested and is waiting for doctor confirmation.`,
       appointmentId: newAppointment.id,
       createdAt: new Date().toISOString(),
       read: false,
@@ -434,7 +452,7 @@ function BookingContent() {
       userId: selectedDoctor.id,
       type: "booking",
       title: "New Appointment Request",
-      message: `${patient.name} has requested an appointment with you.`,
+      message: `${patient.name} has requested an ${consultationType === "online" ? "online" : "in-person"} appointment with you.`,
       appointmentId: newAppointment.id,
       createdAt: new Date().toISOString(),
       read: false,
@@ -458,7 +476,8 @@ function BookingContent() {
       return;
     }
 
-    const storedPatient = localStorage.getItem("loggedInPatient");
+    const storedPatient =
+      localStorage.getItem("loggedInPatient");
 
     if (!storedPatient) {
       setMessage(
@@ -472,7 +491,11 @@ function BookingContent() {
   };
 
   const handlePayment = () => {
-    if (paymentProcessing || !selectedDoctor || !selectedSlot) {
+    if (
+      paymentProcessing ||
+      !selectedDoctor ||
+      !selectedSlot
+    ) {
       return;
     }
 
@@ -480,7 +503,8 @@ function BookingContent() {
     setMessage("");
 
     window.setTimeout(() => {
-      const transactionId = `TXN-${Date.now().toString().slice(-8)}`;
+      const transactionId =
+        `TXN-${Date.now().toString().slice(-8)}`;
 
       setPaymentTransactionId(transactionId);
       setPaymentProcessing(false);
@@ -574,7 +598,7 @@ function BookingContent() {
               </h1>
 
               <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-                Review the doctor and selected appointment slot before confirming.
+                Review the doctor, consultation type, fee and selected appointment slot before confirming.
               </p>
             </div>
 
@@ -609,8 +633,131 @@ function BookingContent() {
                   </p>
 
                   <p className="mt-1 text-sm font-bold text-slate-900">
-                    ₹{selectedDoctor.consultationFee}
+                    ₹{selectedFee}
                   </p>
+                </div>
+              </div>
+            </section>
+
+            {/* Consultation Type */}
+            <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700">
+                  Consultation Type
+                </p>
+
+                <h2 className="mt-2 text-lg font-bold tracking-tight text-slate-900 sm:text-xl">
+                  Choose how you want to consult
+                </h2>
+
+                <p className="mt-1 text-sm leading-6 text-slate-500">
+                  Select online consultation or visit the doctor at the clinic.
+                </p>
+              </div>
+
+              <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setConsultationType("online")
+                  }
+                  className={`rounded-2xl border p-4 text-left transition-all duration-200 ${
+                    consultationType === "online"
+                      ? "border-emerald-500 bg-emerald-50 ring-2 ring-emerald-100"
+                      : "border-slate-200 bg-white hover:border-emerald-200 hover:bg-emerald-50/30"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-bold text-slate-900">
+                        Online Consultation
+                      </p>
+
+                      <p className="mt-1 text-xs leading-5 text-slate-500">
+                        Consult the doctor online from anywhere.
+                      </p>
+                    </div>
+
+                    <span
+                      className={`grid size-5 shrink-0 place-items-center rounded-full border ${
+                        consultationType === "online"
+                          ? "border-emerald-600"
+                          : "border-slate-300"
+                      }`}
+                    >
+                      {consultationType === "online" && (
+                        <span className="size-2.5 rounded-full bg-emerald-600" />
+                      )}
+                    </span>
+                  </div>
+
+                  <p className="mt-4 text-base font-bold text-emerald-700">
+                    ₹{selectedDoctor.onlineFee}
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setConsultationType("in-person")
+                  }
+                  className={`rounded-2xl border p-4 text-left transition-all duration-200 ${
+                    consultationType === "in-person"
+                      ? "border-emerald-500 bg-emerald-50 ring-2 ring-emerald-100"
+                      : "border-slate-200 bg-white hover:border-emerald-200 hover:bg-emerald-50/30"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-bold text-slate-900">
+                        In-person Consultation
+                      </p>
+
+                      <p className="mt-1 text-xs leading-5 text-slate-500">
+                        Visit the doctor at the clinic.
+                      </p>
+                    </div>
+
+                    <span
+                      className={`grid size-5 shrink-0 place-items-center rounded-full border ${
+                        consultationType === "in-person"
+                          ? "border-emerald-600"
+                          : "border-slate-300"
+                      }`}
+                    >
+                      {consultationType === "in-person" && (
+                        <span className="size-2.5 rounded-full bg-emerald-600" />
+                      )}
+                    </span>
+                  </div>
+
+                  <p className="mt-4 text-base font-bold text-emerald-700">
+                    ₹{selectedDoctor.inPersonFee}
+                  </p>
+                </button>
+              </div>
+
+              <div className="mt-4 rounded-xl border border-emerald-100 bg-emerald-50/60 px-4 py-3">
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-sm text-slate-600">
+                    Selected consultation
+                  </span>
+
+                  <span className="text-sm font-bold text-emerald-700">
+                    {consultationType === "online"
+                      ? "Online"
+                      : "In-person"}
+                  </span>
+                </div>
+
+                <div className="mt-2 flex items-center justify-between gap-4">
+                  <span className="text-sm text-slate-600">
+                    Consultation fee
+                  </span>
+
+                  <span className="text-sm font-bold text-slate-900">
+                    ₹{selectedFee}
+                  </span>
                 </div>
               </div>
             </section>
@@ -711,6 +858,28 @@ function BookingContent() {
 
               <div className="mt-5">
                 <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                  Consultation Type
+                </p>
+
+                <p className="mt-1 font-semibold text-emerald-700">
+                  {consultationType === "online"
+                    ? "Online Consultation"
+                    : "In-person Consultation"}
+                </p>
+              </div>
+
+              <div className="mt-5">
+                <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                  Consultation Fee
+                </p>
+
+                <p className="mt-1 font-semibold text-slate-900">
+                  ₹{selectedFee}
+                </p>
+              </div>
+
+              <div className="mt-5">
+                <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
                   Date
                 </p>
 
@@ -786,6 +955,7 @@ function BookingContent() {
                       <p className="text-xs font-bold uppercase tracking-[0.16em] text-emerald-600">
                         Secure Checkout
                       </p>
+
                       <h2
                         id="payment-title"
                         className="mt-1 text-2xl font-bold tracking-tight text-slate-900"
@@ -813,13 +983,20 @@ function BookingContent() {
                         <p className="text-sm font-bold text-slate-900">
                           Doctor Consultation
                         </p>
+
                         <p className="mt-1 text-xs text-slate-500">
                           {selectedDoctor.name}
+                        </p>
+
+                        <p className="mt-1 text-xs font-semibold text-emerald-700">
+                          {consultationType === "online"
+                            ? "Online Consultation"
+                            : "In-person Consultation"}
                         </p>
                       </div>
 
                       <p className="text-xl font-bold text-slate-900">
-                        ₹{selectedDoctor.consultationFee}
+                        ₹{selectedFee}
                       </p>
                     </div>
                   </div>
@@ -850,7 +1027,9 @@ function BookingContent() {
                         <button
                           key={method.value}
                           type="button"
-                          onClick={() => setPaymentMethod(method.value)}
+                          onClick={() =>
+                            setPaymentMethod(method.value)
+                          }
                           disabled={paymentProcessing}
                           className={`flex items-center justify-between rounded-2xl border p-4 text-left transition-all duration-200 ${
                             paymentMethod === method.value
@@ -862,6 +1041,7 @@ function BookingContent() {
                             <p className="text-sm font-bold text-slate-900">
                               {method.title}
                             </p>
+
                             <p className="mt-1 text-xs text-slate-500">
                               {method.description}
                             </p>
@@ -891,7 +1071,7 @@ function BookingContent() {
                   >
                     {paymentProcessing
                       ? "Processing Payment..."
-                      : `Pay ₹${selectedDoctor.consultationFee}`}
+                      : `Pay ₹${selectedFee}`}
                   </button>
 
                   <p className="mt-3 text-center text-xs leading-5 text-slate-400">
@@ -919,14 +1099,32 @@ function BookingContent() {
 
                 <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left">
                   <div className="flex items-center justify-between gap-4">
-                    <span className="text-sm text-slate-500">Amount Paid</span>
+                    <span className="text-sm text-slate-500">
+                      Amount Paid
+                    </span>
+
                     <span className="text-sm font-bold text-slate-900">
-                      ₹{selectedDoctor.consultationFee}
+                      ₹{selectedFee}
                     </span>
                   </div>
 
                   <div className="mt-3 flex items-center justify-between gap-4">
-                    <span className="text-sm text-slate-500">Method</span>
+                    <span className="text-sm text-slate-500">
+                      Consultation
+                    </span>
+
+                    <span className="text-sm font-semibold text-slate-900">
+                      {consultationType === "online"
+                        ? "Online"
+                        : "In-person"}
+                    </span>
+                  </div>
+
+                  <div className="mt-3 flex items-center justify-between gap-4">
+                    <span className="text-sm text-slate-500">
+                      Method
+                    </span>
+
                     <span className="text-sm font-semibold uppercase text-slate-900">
                       {paymentMethod === "netbanking"
                         ? "Net Banking"
@@ -935,7 +1133,10 @@ function BookingContent() {
                   </div>
 
                   <div className="mt-3 flex items-center justify-between gap-4">
-                    <span className="text-sm text-slate-500">Transaction ID</span>
+                    <span className="text-sm text-slate-500">
+                      Transaction ID
+                    </span>
+
                     <span className="text-right text-xs font-semibold text-slate-900">
                       {paymentTransactionId}
                     </span>

@@ -266,6 +266,102 @@ const [notificationOpen, setNotificationOpen] =
     );
   }, [appointments, doctor]);
 
+    // Doctor Rating Analyzer
+    // Reviews come from completed appointments with a valid 1-5 rating.
+    const ratingAnalyzer = useMemo(() => {
+      const reviewedAppointments = doctorAppointments
+        .filter(
+          (appointment) =>
+            appointment.status === "completed" &&
+            typeof appointment.review?.rating === "number" &&
+            appointment.review.rating >= 1 &&
+            appointment.review.rating <= 5
+        )
+        .sort(
+          (first, second) =>
+            new Date(second.startsAt).getTime() -
+            new Date(first.startsAt).getTime()
+        );
+
+      const totalReviews = reviewedAppointments.length;
+      const totalRating = reviewedAppointments.reduce(
+        (sum, appointment) =>
+          sum + (appointment.review?.rating ?? 0),
+        0
+      );
+
+      const averageRating =
+        totalReviews > 0
+          ? Number((totalRating / totalReviews).toFixed(1))
+          : 0;
+
+      const starDistribution = [5, 4, 3, 2, 1].map((rating) => {
+        const count = reviewedAppointments.filter(
+          (appointment) => appointment.review?.rating === rating
+        ).length;
+
+        return {
+          rating,
+          count,
+          percentage:
+            totalReviews > 0
+              ? Math.round((count / totalReviews) * 100)
+              : 0,
+        };
+      });
+
+      const monthlyRatings = Array.from({ length: 6 }, (_, index) => {
+        const date = new Date();
+        date.setMonth(date.getMonth() - (5 - index));
+
+        const year = date.getFullYear();
+        const month = date.getMonth();
+        const monthReviews = reviewedAppointments.filter((appointment) => {
+          const appointmentDate = new Date(appointment.startsAt);
+          return (
+            appointmentDate.getFullYear() === year &&
+            appointmentDate.getMonth() === month
+          );
+        });
+
+        const monthTotal = monthReviews.reduce(
+          (sum, appointment) =>
+            sum + (appointment.review?.rating ?? 0),
+          0
+        );
+
+        return {
+          label: new Intl.DateTimeFormat("en-IN", {
+            month: "short",
+          }).format(date),
+          average:
+            monthReviews.length > 0
+              ? Number((monthTotal / monthReviews.length).toFixed(1))
+              : 0,
+          count: monthReviews.length,
+        };
+      });
+
+      const recentReviews = reviewedAppointments
+        .filter((appointment) => Boolean(appointment.review?.comment?.trim()))
+        .slice(0, 5)
+        .map((appointment) => ({
+          id: appointment.id,
+          patientName: appointment.patient.name,
+          rating: appointment.review?.rating ?? 0,
+          comment: appointment.review?.comment?.trim() ?? "",
+          date: appointment.startsAt,
+        }));
+
+      return {
+        averageRating,
+        totalReviews,
+        starDistribution,
+        monthlyRatings,
+        recentReviews,
+      };
+    }, [doctorAppointments]);
+
     const doctorNotifications = useMemo(() => {
     if (!doctor) {
       return [];
@@ -578,6 +674,17 @@ const [notificationOpen, setNotificationOpen] =
   </span>
 
   Prescriptions
+</Link>
+{/* Ratings */}
+<Link
+  href="/doctors/ratings"
+  className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-emerald-50 transition hover:bg-white/10"
+>
+  <span className="text-lg">
+    ★
+  </span>
+
+  Ratings
 </Link>
             </div>
           </nav>
@@ -970,6 +1077,105 @@ const [notificationOpen, setNotificationOpen] =
 
               </div>
 
+            </section>
+
+            {/* Doctor Rating Analyzer */}
+            <section className="mt-8 rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <div className="border-b border-slate-200 bg-slate-50/50 px-6 py-5">
+                <p className="text-sm font-semibold uppercase tracking-wider text-emerald-600">
+                  Doctor Rating Analyzer
+                </p>
+                <h2 className="mt-1 text-lg font-bold tracking-tight text-slate-900">
+                  Patient Review Performance
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  Review your average rating, star distribution, monthly trends, and recent patient feedback.
+                </p>
+              </div>
+
+              <div className="space-y-6 p-6">
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-5">
+                    <p className="text-sm font-medium text-slate-500">Average Rating</p>
+                    <div className="mt-3 flex items-center gap-3">
+                      <p className="text-3xl font-bold text-slate-900">
+                        {ratingAnalyzer.averageRating > 0 ? ratingAnalyzer.averageRating.toFixed(1) : "—"}
+                      </p>
+                      <span className="text-xl text-amber-500">★</span>
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-5">
+                    <p className="text-sm font-medium text-slate-500">Total Reviews</p>
+                    <p className="mt-3 text-3xl font-bold text-slate-900">{ratingAnalyzer.totalReviews}</p>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-5">
+                    <p className="text-sm font-medium text-slate-500">Latest Feedback</p>
+                    <p className="mt-3 text-sm font-semibold text-slate-900">
+                      {ratingAnalyzer.recentReviews.length > 0 ? ratingAnalyzer.recentReviews[0].patientName : "No written reviews yet"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid gap-6 lg:grid-cols-2">
+                  <div className="rounded-xl border border-slate-200 p-5">
+                    <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">Star Distribution</h3>
+                    <div className="mt-4 space-y-3">
+                      {ratingAnalyzer.starDistribution.map((item) => (
+                        <div key={item.rating} className="flex items-center gap-3">
+                          <span className="w-10 text-sm font-semibold text-slate-700">{item.rating} ★</span>
+                          <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
+                            <div className="h-full rounded-full bg-amber-400" style={{ width: `${item.percentage}%` }} />
+                          </div>
+                          <span className="w-10 text-right text-xs font-medium text-slate-500">{item.count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-slate-200 p-5">
+                    <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">Monthly Rating Trend</h3>
+                    <div className="mt-4 grid grid-cols-3 gap-3 sm:grid-cols-6">
+                      {ratingAnalyzer.monthlyRatings.map((item, index) => (
+                        <div key={`${item.label}-${index}`} className="rounded-lg bg-slate-50 p-3 text-center">
+                          <p className="text-xs font-medium text-slate-400">{item.label}</p>
+                          <p className="mt-2 text-lg font-bold text-slate-900">{item.average > 0 ? item.average.toFixed(1) : "—"}</p>
+                          <p className="mt-1 text-[11px] text-slate-400">{item.count} reviews</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-slate-200 p-5">
+                  <div className="flex items-center justify-between gap-3">
+                    <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">Recent Patient Reviews</h3>
+                    <span className="text-xs font-medium text-slate-400">Latest 5</span>
+                  </div>
+                  {ratingAnalyzer.recentReviews.length === 0 ? (
+                    <div className="mt-4 rounded-xl bg-slate-50 px-5 py-8 text-center">
+                      <p className="font-semibold text-slate-700">No written patient reviews yet</p>
+                      <p className="mt-1 text-sm text-slate-500">Patient feedback will appear here after completed appointments are reviewed.</p>
+                    </div>
+                  ) : (
+                    <div className="mt-4 divide-y divide-slate-100">
+                      {ratingAnalyzer.recentReviews.map((review) => (
+                        <div key={review.id} className="py-4 first:pt-0 last:pb-0">
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                            <div>
+                              <p className="font-semibold text-slate-900">{review.patientName}</p>
+                              <p className="mt-1 text-xs text-slate-400">{formatDate(review.date)}</p>
+                            </div>
+                            <span className="text-sm font-semibold text-amber-500">
+                              {Array.from({ length: 5 }, (_, index) => index < review.rating ? "★" : "☆").join("")}
+                            </span>
+                          </div>
+                          <p className="mt-3 text-sm leading-6 text-slate-600">{review.comment}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
             </section>
 
             {/* Upcoming Appointments */}

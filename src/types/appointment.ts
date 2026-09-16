@@ -8,6 +8,8 @@ export type AppointmentStatus =
   | "cancelled"
   | "missed";
 
+export type ConsultationType = "online" | "in-person";
+
 export type PaymentMethod = "upi" | "card" | "netbanking";
 
 export type PaymentStatus = "pending" | "paid" | "failed";
@@ -22,17 +24,23 @@ export type AppointmentPayment = {
 
 export type Appointment = {
   id: string;
+
   patient: {
     id?: string;
     name: string;
     initials: string;
     age: number;
   };
+
   clinician: string;
   specialty: string;
+
   startsAt: string;
   durationMinutes: number;
+
   status: AppointmentStatus;
+  consultationType?: ConsultationType;
+
   reason: string;
   room: string;
 

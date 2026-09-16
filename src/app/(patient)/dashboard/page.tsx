@@ -566,6 +566,14 @@ export default function PatientDashboardPage() {
 
             <nav className="mt-4 space-y-2">
               <Link
+                href="/"
+                className="flex items-center gap-4 rounded-2xl px-5 py-4 text-sm font-bold transition-all duration-200 hover:bg-emerald-600/70"
+              >
+                <span className="text-lg">⌂</span>
+                Home
+              </Link>
+
+              <Link
                 href="/dashboard"
                 className="flex items-center gap-4 rounded-2xl bg-emerald-600/70 px-5 py-4 text-sm font-bold shadow-sm transition-all duration-200 hover:bg-emerald-500"
               >

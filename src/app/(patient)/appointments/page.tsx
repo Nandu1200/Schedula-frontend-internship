@@ -72,11 +72,73 @@ const formatDateTime = (value: string) =>
 const getAppointmentType = (
   appointment: Appointment
 ) => {
-  return (
-    (appointment as Appointment & {
-      appointmentType?: string;
-    }).appointmentType ?? "Consultation"
+  return appointment.consultationType === "online"
+    ? "Online Consultation"
+    : "In-person Consultation";
+};
+
+const getConsultationStatus = (
+  appointment: Appointment,
+  currentTime: number
+) => {
+  if (appointment.status === "cancelled") {
+    return "Cancelled";
+  }
+
+  if (appointment.status === "completed") {
+    return "Completed";
+  }
+
+  if (appointment.status === "missed") {
+    return "Missed";
+  }
+
+  const startsAt = new Date(appointment.startsAt).getTime();
+  const diff = startsAt - currentTime;
+
+  if (diff <= 0) {
+    return "Live / Consultation";
+  }
+
+  if (diff <= 5 * 60 * 1000) {
+    return "Starting Soon";
+  }
+
+  return "Upcoming";
+};
+
+const formatCountdown = (
+  startsAt: string,
+  currentTime: number
+) => {
+  const diff = new Date(startsAt).getTime() - currentTime;
+
+  if (diff <= 0) {
+    return "Started";
+  }
+
+  const totalSeconds = Math.floor(diff / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor(
+    (totalSeconds % 3600) / 60
   );
+  const seconds = totalSeconds % 60;
+
+  if (hours > 0) {
+    return `${hours}h ${String(minutes).padStart(2, "0")}m ${String(seconds).padStart(2, "0")}s`;
+  }
+
+  return `${minutes}m ${String(seconds).padStart(2, "0")}s`;
+};
+
+const getConsultationLocation = (
+  appointment: Appointment
+) => {
+  if (appointment.consultationType === "online") {
+    return "Online Consultation";
+  }
+
+  return appointment.room?.trim() || "Clinic / Consultation Room";
 };
 
 const getPaymentMethodLabel = (method?: NonNullable<Appointment["payment"]>["method"]) => {
@@ -149,6 +211,12 @@ export default function PatientAppointmentsPage() {
   const [loading, setLoading] =
     useState(true);
 
+  const [currentTime, setCurrentTime] =
+    useState(() => Date.now());
+
+  const [locationAppointmentId, setLocationAppointmentId] =
+    useState("");
+
   const [cancellingId, setCancellingId] =
     useState("");
 
@@ -204,6 +272,16 @@ const [reviewSuccess, setReviewSuccess] =
 
   const [rescheduling, setRescheduling] =
   useState(false);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 1000);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, []);
 
   useEffect(() => {
     const loadAppointments = () => {
@@ -1293,6 +1371,142 @@ const handleSubmitReview = () => {
                       </p>
                     </div>
 
+                  </div>
+
+                  {/* Consultation */}
+                  <div
+                    className={`mt-5 rounded-2xl border p-4 shadow-sm ${
+                      appointment.consultationType === "online"
+                        ? "border-blue-200 bg-blue-50/60"
+                        : "border-amber-200 bg-amber-50/60"
+                    }`}
+                  >
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          Consultation
+                        </p>
+                        <p className="mt-1 text-lg font-bold text-slate-900">
+                          {getAppointmentType(appointment)}
+                        </p>
+                        <p className="mt-1 text-sm font-medium text-slate-600">
+                          {appointment.consultationType === "online"
+                            ? "Your online consultation will be available from the appointment time."
+                            : `Clinic: ${getConsultationLocation(appointment)}`}
+                        </p>
+                      </div>
+
+                      <span className="w-fit rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700">
+                        {getConsultationStatus(
+                          appointment,
+                          currentTime
+                        )}
+                      </span>
+                    </div>
+
+                    {appointment.consultationType === "online" &&
+                      appointment.status !== "cancelled" &&
+                      appointment.status !== "completed" &&
+                      appointment.status !== "missed" && (
+                        <div className="mt-4 flex flex-col gap-3 rounded-xl border border-blue-100 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+                          <div>
+                            <p className="text-sm font-semibold text-slate-900">
+                              Appointment Time
+                            </p>
+                            <p className="mt-1 text-sm text-slate-500">
+                              {formatDateTime(appointment.startsAt)}
+                            </p>
+                            <p className="mt-2 text-sm font-bold text-blue-700">
+                              {getConsultationStatus(
+                                appointment,
+                                currentTime
+                              ) === "Live / Consultation"
+                                ? "The consultation has started."
+                                : `Starts in ${formatCountdown(
+                                    appointment.startsAt,
+                                    currentTime
+                                  )}`}
+                            </p>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              router.push(
+                                `/consultation/${encodeURIComponent(
+                                  appointment.id
+                                )}`
+                              )
+                            }
+                            disabled={
+                              appointment.status === "pending" ||
+                              new Date(appointment.startsAt).getTime() -
+                                currentTime >
+                                5 * 60 * 1000
+                            }
+                            className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
+                          >
+                            Join Consultation
+                          </button>
+                        </div>
+                      )}
+
+                    {appointment.consultationType !== "online" &&
+                      appointment.status !== "cancelled" &&
+                      appointment.status !== "completed" &&
+                      appointment.status !== "missed" && (
+                        <div className="mt-4 rounded-xl border border-amber-100 bg-white p-4">
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                              <p className="text-sm font-semibold text-slate-900">
+                                Clinic / Location
+                              </p>
+                              <p className="mt-1 text-sm text-slate-600">
+                                {getConsultationLocation(appointment)}
+                              </p>
+                              <p className="mt-1 text-sm text-slate-500">
+                                Appointment: {formatDateTime(appointment.startsAt)}
+                              </p>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setLocationAppointmentId(
+                                  locationAppointmentId === appointment.id
+                                    ? ""
+                                    : appointment.id
+                                )
+                              }
+                              className="rounded-xl border border-amber-300 px-5 py-3 text-sm font-semibold text-amber-700 transition hover:bg-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+                            >
+                              {locationAppointmentId === appointment.id
+                                ? "Hide Location"
+                                : "View Location"}
+                            </button>
+                          </div>
+
+                          {locationAppointmentId === appointment.id && (
+                            <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
+                              <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
+                                Clinic / Location
+                              </p>
+
+                              <p className="mt-1 text-base font-bold text-slate-900">
+                                {getConsultationLocation(appointment)}
+                              </p>
+
+                              <p className="mt-1 text-sm text-slate-600">
+                                Appointment: {formatDateTime(appointment.startsAt)}
+                              </p>
+
+                              <p className="mt-2 text-xs text-slate-500">
+                                Please arrive a few minutes before your appointment time.
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      )}
                   </div>
 
                   {/* Payment */}
