@@ -12,9 +12,14 @@ import { useSearchParams } from "next/navigation";
 
 import { doctors as mockDoctors } from "@/lib/mock-data/doctors";
 import { addNotification } from "@/lib/utils/notifications";
+import { useAppDispatch } from "@/store/hooks";
+import { setAppointments } from "@/store/appointmentSlice";
 
 import type { Doctor } from "@/types/doctor";
-import type { Appointment } from "@/types/appointment";
+import type {
+  Appointment,
+  ConsultationType,
+} from "@/types/appointment";
 import type { AvailabilitySlot } from "@/types/availability";
 
 type LoggedInPatient = {
@@ -28,6 +33,8 @@ type LoggedInPatient = {
 function BookingContent() {
   const searchParams = useSearchParams();
 
+  const dispatch = useAppDispatch();
+
   const doctorId = searchParams.get("doctorId");
   const slotId = searchParams.get("slotId");
 
@@ -37,12 +44,28 @@ function BookingContent() {
   const [selectedSlot, setSelectedSlot] =
     useState<AvailabilitySlot | null>(null);
 
+  const [consultationType, setConsultationType] =
+    useState<ConsultationType>("in-person");
+
   const [confirmed, setConfirmed] = useState(false);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [confirming, setConfirming] = useState(false);
 
+  const [paymentOpen, setPaymentOpen] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<
+    "upi" | "card" | "netbanking"
+  >("upi");
+  const [paymentProcessing, setPaymentProcessing] = useState(false);
+  const [paymentSuccess, setPaymentSuccess] = useState(false);
+  const [paymentTransactionId, setPaymentTransactionId] = useState("");
+
   const confirmLock = useRef(false);
+
+  const selectedFee =
+    consultationType === "online"
+      ? selectedDoctor?.onlineFee ?? 0
+      : selectedDoctor?.inPersonFee ?? 0;
 
   useEffect(() => {
     const loadBookingData = () => {
@@ -143,7 +166,9 @@ function BookingContent() {
     loadBookingData();
   }, [doctorId, slotId]);
 
-  const handleConfirm = () => {
+  const createAppointmentWithPayment = (
+    transactionId: string
+  ) => {
     if (confirmLock.current) {
       return;
     }
@@ -284,7 +309,12 @@ function BookingContent() {
       startsAt: startsAt.toISOString(),
       durationMinutes,
       status: "pending",
-      room: "Consultation Room",
+      room:
+        consultationType === "online"
+          ? "Online Consultation"
+          : "Consultation Room",
+
+      consultationType,
 
       patient: {
         id: patient.id,
@@ -301,6 +331,14 @@ function BookingContent() {
       },
 
       reason: "General consultation",
+
+      payment: {
+        status: "paid",
+        amount: selectedFee,
+        method: paymentMethod,
+        transactionId,
+        paidAt: new Date().toISOString(),
+      },
     };
 
     /*
@@ -369,6 +407,12 @@ function BookingContent() {
     );
 
     /*
+     * Keep Redux in sync with the
+     * appointments stored in localStorage.
+     */
+    dispatch(setAppointments(updatedAppointments));
+
+    /*
      * Mark selected slot as booked.
      */
     const updatedSlots = doctorSlots.map(
@@ -394,7 +438,21 @@ function BookingContent() {
       userId: patient.id,
       type: "booking",
       title: "Appointment Requested",
-      message: `Your appointment with ${selectedDoctor.name} has been requested and is waiting for doctor confirmation.`,
+      message: `Your ${consultationType === "online" ? "online" : "in-person"} appointment with ${selectedDoctor.name} has been requested and is waiting for doctor confirmation.`,
+      appointmentId: newAppointment.id,
+      createdAt: new Date().toISOString(),
+      read: false,
+    });
+
+    /*
+     * Create doctor notification.
+     */
+    addNotification({
+      id: `notification-${Date.now()}-doctor`,
+      userId: selectedDoctor.id,
+      type: "booking",
+      title: "New Appointment Request",
+      message: `${patient.name} has requested an ${consultationType === "online" ? "online" : "in-person"} appointment with you.`,
       appointmentId: newAppointment.id,
       createdAt: new Date().toISOString(),
       read: false,
@@ -410,12 +468,55 @@ function BookingContent() {
 
     setConfirmed(true);
     setConfirming(false);
+    setPaymentSuccess(true);
+  };
+
+  const handleProceedToPayment = () => {
+    if (!selectedDoctor || !selectedSlot) {
+      return;
+    }
+
+    const storedPatient =
+      localStorage.getItem("loggedInPatient");
+
+    if (!storedPatient) {
+      setMessage(
+        "Please login as a patient before booking an appointment."
+      );
+      return;
+    }
+
+    setMessage("");
+    setPaymentOpen(true);
+  };
+
+  const handlePayment = () => {
+    if (
+      paymentProcessing ||
+      !selectedDoctor ||
+      !selectedSlot
+    ) {
+      return;
+    }
+
+    setPaymentProcessing(true);
+    setMessage("");
+
+    window.setTimeout(() => {
+      const transactionId =
+        `TXN-${Date.now().toString().slice(-8)}`;
+
+      setPaymentTransactionId(transactionId);
+      setPaymentProcessing(false);
+
+      createAppointmentWithPayment(transactionId);
+    }, 1200);
   };
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#f7faf9]">
-        <p className="text-slate-500">
+      <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#f7faf9] via-white to-emerald-50/30 px-4">
+        <p className="text-sm text-slate-500">
           Loading booking details...
         </p>
       </main>
@@ -425,23 +526,23 @@ function BookingContent() {
   if (!selectedDoctor || !selectedSlot) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#f7faf9] px-6">
-        <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
-          <div className="mx-auto grid size-14 place-items-center rounded-full bg-red-50 text-xl">
+        <div className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-lg shadow-slate-200/50 transition-shadow duration-200 hover:shadow-xl">
+          <div className="mx-auto grid size-14 place-items-center rounded-full border border-red-100 bg-red-50 text-xl font-bold text-red-600 shadow-sm">
             !
           </div>
 
-          <h1 className="mt-5 text-2xl font-bold">
+          <h1 className="mt-5 text-2xl font-bold tracking-tight text-slate-900">
             Unable to book appointment
           </h1>
 
-          <p className="mt-2 text-sm text-slate-500">
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
             {message ||
               "The selected doctor or appointment slot could not be found."}
           </p>
 
           <Link
             href="/doctors"
-            className="mt-6 inline-flex rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-700"
+            className="mt-6 inline-flex rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-emerald-700 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
           >
             Back to Doctors
           </Link>
@@ -451,15 +552,15 @@ function BookingContent() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f7faf9] text-slate-900">
+    <main className="min-h-screen bg-gradient-to-br from-[#f7faf9] via-white to-emerald-50/30 text-slate-900">
       {/* Navbar */}
-      <header className="border-b border-slate-200 bg-white">
+      <header className="border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur-sm">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4 lg:px-8">
           <Link
             href="/"
-            className="flex items-center gap-3"
+            className="flex items-center gap-3 transition-opacity duration-200 hover:opacity-90"
           >
-            <div className="grid size-10 place-items-center rounded-xl bg-emerald-600 text-lg font-bold text-white">
+            <div className="grid size-10 place-items-center rounded-xl bg-emerald-600 text-lg font-bold text-white shadow-sm transition-transform duration-200 hover:scale-105">
               S
             </div>
 
@@ -476,77 +577,200 @@ function BookingContent() {
 
           <Link
             href="/doctors"
-            className="rounded-lg px-3.5 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
+            className="rounded-xl px-3.5 py-2 text-sm font-semibold text-slate-700 transition-all duration-200 hover:bg-slate-100 hover:text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
           >
             Back to Doctors
           </Link>
         </div>
       </header>
 
-      <section className="mx-auto max-w-3xl px-6 py-10 lg:px-8">
+      <section className="mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
         {!confirmed ? (
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+          <div className="rounded-3xl border border-slate-200 bg-white/95 p-5 shadow-lg shadow-slate-200/50 backdrop-blur-sm transition-shadow duration-200 hover:shadow-xl sm:p-8">
             {/* Heading */}
             <div>
-              <p className="text-sm font-bold uppercase tracking-wider text-emerald-600">
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-600">
                 Appointment Booking
               </p>
 
-              <h1 className="mt-2 text-3xl font-bold tracking-tight">
+              <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
                 Confirm your appointment
               </h1>
 
-              <p className="mt-2 text-sm text-slate-500">
-                Review the doctor and selected appointment slot before confirming.
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+                Review the doctor, consultation type, fee and selected appointment slot before confirming.
               </p>
             </div>
 
             {/* Doctor */}
-            <section className="mt-8 rounded-2xl border border-slate-200 p-5">
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+            <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-200 hover:border-emerald-200 hover:shadow-md sm:p-6">
+              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
                 Doctor
               </p>
 
-              <h2 className="mt-2 text-xl font-bold">
+              <h2 className="mt-2 text-xl font-bold tracking-tight text-slate-900">
                 {selectedDoctor.name}
               </h2>
 
-              <p className="mt-1 font-medium text-emerald-700">
+              <p className="mt-1 font-semibold text-emerald-700">
                 {selectedDoctor.specialty}
               </p>
 
               <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                <div className="rounded-xl bg-slate-50 p-4">
+                <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-4 transition-colors duration-200 hover:bg-emerald-50/40">
                   <p className="text-xs text-slate-500">
                     Qualification
                   </p>
 
-                  <p className="mt-1 text-sm font-semibold">
+                  <p className="mt-1 text-sm font-semibold text-slate-900">
                     {selectedDoctor.qualification}
                   </p>
                 </div>
 
-                <div className="rounded-xl bg-slate-50 p-4">
+                <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-4 transition-colors duration-200 hover:bg-emerald-50/40">
                   <p className="text-xs text-slate-500">
                     Consultation Fee
                   </p>
 
-                  <p className="mt-1 text-sm font-bold">
-                    ₹{selectedDoctor.consultationFee}
+                  <p className="mt-1 text-sm font-bold text-slate-900">
+                    ₹{selectedFee}
                   </p>
                 </div>
               </div>
             </section>
 
+            {/* Consultation Type */}
+            <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700">
+                  Consultation Type
+                </p>
+
+                <h2 className="mt-2 text-lg font-bold tracking-tight text-slate-900 sm:text-xl">
+                  Choose how you want to consult
+                </h2>
+
+                <p className="mt-1 text-sm leading-6 text-slate-500">
+                  Select online consultation or visit the doctor at the clinic.
+                </p>
+              </div>
+
+              <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setConsultationType("online")
+                  }
+                  className={`rounded-2xl border p-4 text-left transition-all duration-200 ${
+                    consultationType === "online"
+                      ? "border-emerald-500 bg-emerald-50 ring-2 ring-emerald-100"
+                      : "border-slate-200 bg-white hover:border-emerald-200 hover:bg-emerald-50/30"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-bold text-slate-900">
+                        Online Consultation
+                      </p>
+
+                      <p className="mt-1 text-xs leading-5 text-slate-500">
+                        Consult the doctor online from anywhere.
+                      </p>
+                    </div>
+
+                    <span
+                      className={`grid size-5 shrink-0 place-items-center rounded-full border ${
+                        consultationType === "online"
+                          ? "border-emerald-600"
+                          : "border-slate-300"
+                      }`}
+                    >
+                      {consultationType === "online" && (
+                        <span className="size-2.5 rounded-full bg-emerald-600" />
+                      )}
+                    </span>
+                  </div>
+
+                  <p className="mt-4 text-base font-bold text-emerald-700">
+                    ₹{selectedDoctor.onlineFee}
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setConsultationType("in-person")
+                  }
+                  className={`rounded-2xl border p-4 text-left transition-all duration-200 ${
+                    consultationType === "in-person"
+                      ? "border-emerald-500 bg-emerald-50 ring-2 ring-emerald-100"
+                      : "border-slate-200 bg-white hover:border-emerald-200 hover:bg-emerald-50/30"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-bold text-slate-900">
+                        In-person Consultation
+                      </p>
+
+                      <p className="mt-1 text-xs leading-5 text-slate-500">
+                        Visit the doctor at the clinic.
+                      </p>
+                    </div>
+
+                    <span
+                      className={`grid size-5 shrink-0 place-items-center rounded-full border ${
+                        consultationType === "in-person"
+                          ? "border-emerald-600"
+                          : "border-slate-300"
+                      }`}
+                    >
+                      {consultationType === "in-person" && (
+                        <span className="size-2.5 rounded-full bg-emerald-600" />
+                      )}
+                    </span>
+                  </div>
+
+                  <p className="mt-4 text-base font-bold text-emerald-700">
+                    ₹{selectedDoctor.inPersonFee}
+                  </p>
+                </button>
+              </div>
+
+              <div className="mt-4 rounded-xl border border-emerald-100 bg-emerald-50/60 px-4 py-3">
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-sm text-slate-600">
+                    Selected consultation
+                  </span>
+
+                  <span className="text-sm font-bold text-emerald-700">
+                    {consultationType === "online"
+                      ? "Online"
+                      : "In-person"}
+                  </span>
+                </div>
+
+                <div className="mt-2 flex items-center justify-between gap-4">
+                  <span className="text-sm text-slate-600">
+                    Consultation fee
+                  </span>
+
+                  <span className="text-sm font-bold text-slate-900">
+                    ₹{selectedFee}
+                  </span>
+                </div>
+              </div>
+            </section>
+
             {/* Selected Slot */}
-            <section className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
-              <div className="flex items-center justify-between gap-4">
+            <section className="mt-5 rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-5 shadow-sm transition-all duration-200 hover:shadow-md sm:p-6">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700">
                     Selected Slot
                   </p>
 
-                  <h2 className="mt-2 text-lg font-bold text-slate-900">
+                  <h2 className="mt-2 text-lg font-bold tracking-tight text-slate-900 sm:text-xl">
                     {new Intl.DateTimeFormat("en-IN", {
                       weekday: "long",
                       day: "numeric",
@@ -559,13 +783,13 @@ function BookingContent() {
                     )}
                   </h2>
 
-                  <p className="mt-1 text-sm font-semibold text-emerald-700">
+                  <p className="mt-1 text-sm font-bold text-emerald-700">
                     {selectedSlot.startTime} -{" "}
                     {selectedSlot.endTime}
                   </p>
                 </div>
 
-                <span className="rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-bold text-emerald-700">
+                <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-100 px-3 py-1.5 text-xs font-bold text-emerald-700 shadow-sm">
                   Available
                 </span>
               </div>
@@ -574,7 +798,7 @@ function BookingContent() {
             {/* Message */}
             {message && (
               <div
-                className="mt-5 rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700"
+                className="mt-5 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-medium leading-6 text-red-700 shadow-sm"
                 role="alert"
               >
                 {message}
@@ -584,19 +808,17 @@ function BookingContent() {
             {/* Confirm */}
             <button
               type="button"
-              onClick={handleConfirm}
-              disabled={confirming}
-              className="mt-7 w-full rounded-xl bg-emerald-600 px-5 py-3.5 text-sm font-bold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+              onClick={handleProceedToPayment}
+              disabled={confirming || paymentProcessing}
+              className="mt-7 w-full rounded-xl bg-emerald-600 px-5 py-3.5 text-sm font-bold text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-emerald-700 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
             >
-              {confirming
-                ? "Submitting Appointment..."
-                : "Request Appointment"}
+              Continue to Payment
             </button>
           </div>
         ) : (
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 text-center shadow-sm sm:p-8">
+          <div className="rounded-3xl border border-slate-200 bg-white/95 p-5 text-center shadow-lg shadow-slate-200/50 backdrop-blur-sm transition-shadow duration-200 hover:shadow-xl sm:p-8">
             {/* Success */}
-            <div className="mx-auto grid size-16 place-items-center rounded-full bg-emerald-100 text-2xl font-bold text-emerald-700">
+            <div className="mx-auto grid size-16 place-items-center rounded-full border border-emerald-200 bg-emerald-100 text-2xl font-bold text-emerald-700 shadow-sm">
               ✓
             </div>
 
@@ -604,42 +826,64 @@ function BookingContent() {
               Booking Successful
             </p>
 
-            <h1 className="mt-2 text-3xl font-bold">
+            <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
               Appointment Requested!
             </h1>
 
-            <p className="mt-3 text-slate-500">
+            <p className="mx-auto mt-3 max-w-2xl leading-6 text-slate-500">
               Your appointment request has been submitted successfully and is waiting for doctor confirmation.
             </p>
 
             {/* Confirmation Details */}
-            <div className="mt-8 rounded-2xl border border-slate-200 p-5 text-left">
+            <div className="mt-8 rounded-2xl border border-slate-200 bg-slate-50/50 p-5 text-left shadow-sm sm:p-6">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
                   Doctor
                 </p>
 
-                <p className="mt-1 font-bold">
+                <p className="mt-1 font-bold text-slate-900">
                   {selectedDoctor.name}
                 </p>
               </div>
 
               <div className="mt-5">
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
                   Specialty
                 </p>
 
-                <p className="mt-1 font-semibold">
+                <p className="mt-1 font-semibold text-slate-900">
                   {selectedDoctor.specialty}
                 </p>
               </div>
 
               <div className="mt-5">
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                  Consultation Type
+                </p>
+
+                <p className="mt-1 font-semibold text-emerald-700">
+                  {consultationType === "online"
+                    ? "Online Consultation"
+                    : "In-person Consultation"}
+                </p>
+              </div>
+
+              <div className="mt-5">
+                <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                  Consultation Fee
+                </p>
+
+                <p className="mt-1 font-semibold text-slate-900">
+                  ₹{selectedFee}
+                </p>
+              </div>
+
+              <div className="mt-5">
+                <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
                   Date
                 </p>
 
-                <p className="mt-1 font-semibold">
+                <p className="mt-1 font-semibold text-slate-900">
                   {new Intl.DateTimeFormat("en-IN", {
                     weekday: "long",
                     day: "numeric",
@@ -654,22 +898,22 @@ function BookingContent() {
               </div>
 
               <div className="mt-5">
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
                   Time
                 </p>
 
-                <p className="mt-1 font-semibold">
+                <p className="mt-1 font-semibold text-slate-900">
                   {selectedSlot.startTime} -{" "}
                   {selectedSlot.endTime}
                 </p>
               </div>
 
               <div className="mt-5">
-                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
                   Status
                 </p>
 
-                <span className="mt-1 inline-flex rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700">
+                <span className="mt-1 inline-flex rounded-full border border-amber-200 bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700 shadow-sm">
                   Pending
                 </span>
               </div>
@@ -679,14 +923,14 @@ function BookingContent() {
             <div className="mt-7 grid gap-3 sm:grid-cols-2">
               <Link
                 href="/appointments"
-                className="rounded-xl bg-emerald-600 px-5 py-3 text-sm font-bold text-white hover:bg-emerald-700"
+                className="rounded-xl bg-emerald-600 px-5 py-3 text-sm font-bold text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-emerald-700 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
               >
                 My Appointments
               </Link>
 
               <Link
                 href="/doctors"
-                className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-bold text-slate-700 hover:border-emerald-500 hover:text-emerald-700"
+                className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-bold text-slate-700 transition-all duration-200 hover:-translate-y-0.5 hover:border-emerald-500 hover:bg-emerald-50/50 hover:text-emerald-700 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
               >
                 Find Another Doctor
               </Link>
@@ -694,6 +938,223 @@ function BookingContent() {
           </div>
         )}
       </section>
+
+      {paymentOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 py-6 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="payment-title"
+        >
+          <div className="w-full max-w-md overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl">
+            {!paymentSuccess ? (
+              <>
+                <div className="border-b border-slate-100 px-5 py-5 sm:px-6">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-[0.16em] text-emerald-600">
+                        Secure Checkout
+                      </p>
+
+                      <h2
+                        id="payment-title"
+                        className="mt-1 text-2xl font-bold tracking-tight text-slate-900"
+                      >
+                        Complete Payment
+                      </h2>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setPaymentOpen(false)}
+                      disabled={paymentProcessing}
+                      aria-label="Close payment"
+                      className="grid size-9 place-items-center rounded-full border border-slate-200 text-lg font-semibold text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      ×
+                    </button>
+                  </div>
+                </div>
+
+                <div className="p-5 sm:p-6">
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <p className="text-sm font-bold text-slate-900">
+                          Doctor Consultation
+                        </p>
+
+                        <p className="mt-1 text-xs text-slate-500">
+                          {selectedDoctor.name}
+                        </p>
+
+                        <p className="mt-1 text-xs font-semibold text-emerald-700">
+                          {consultationType === "online"
+                            ? "Online Consultation"
+                            : "In-person Consultation"}
+                        </p>
+                      </div>
+
+                      <p className="text-xl font-bold text-slate-900">
+                        ₹{selectedFee}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-6">
+                    <p className="text-sm font-bold text-slate-900">
+                      Select payment method
+                    </p>
+
+                    <div className="mt-3 grid gap-3">
+                      {[
+                        {
+                          value: "upi" as const,
+                          title: "UPI",
+                          description: "Pay using UPI",
+                        },
+                        {
+                          value: "card" as const,
+                          title: "Card",
+                          description: "Credit or debit card",
+                        },
+                        {
+                          value: "netbanking" as const,
+                          title: "Net Banking",
+                          description: "Pay through your bank",
+                        },
+                      ].map((method) => (
+                        <button
+                          key={method.value}
+                          type="button"
+                          onClick={() =>
+                            setPaymentMethod(method.value)
+                          }
+                          disabled={paymentProcessing}
+                          className={`flex items-center justify-between rounded-2xl border p-4 text-left transition-all duration-200 ${
+                            paymentMethod === method.value
+                              ? "border-emerald-500 bg-emerald-50 ring-2 ring-emerald-100"
+                              : "border-slate-200 bg-white hover:border-emerald-200 hover:bg-emerald-50/30"
+                          }`}
+                        >
+                          <div>
+                            <p className="text-sm font-bold text-slate-900">
+                              {method.title}
+                            </p>
+
+                            <p className="mt-1 text-xs text-slate-500">
+                              {method.description}
+                            </p>
+                          </div>
+
+                          <span
+                            className={`grid size-5 place-items-center rounded-full border ${
+                              paymentMethod === method.value
+                                ? "border-emerald-600"
+                                : "border-slate-300"
+                            }`}
+                          >
+                            {paymentMethod === method.value && (
+                              <span className="size-2.5 rounded-full bg-emerald-600" />
+                            )}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handlePayment}
+                    disabled={paymentProcessing}
+                    className="mt-6 w-full rounded-xl bg-emerald-600 px-5 py-3.5 text-sm font-bold text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-emerald-700 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+                  >
+                    {paymentProcessing
+                      ? "Processing Payment..."
+                      : `Pay ₹${selectedFee}`}
+                  </button>
+
+                  <p className="mt-3 text-center text-xs leading-5 text-slate-400">
+                    This is a secure payment simulation for the application.
+                  </p>
+                </div>
+              </>
+            ) : (
+              <div className="p-6 text-center sm:p-8">
+                <div className="mx-auto grid size-16 place-items-center rounded-full border border-emerald-200 bg-emerald-100 text-2xl font-bold text-emerald-700">
+                  ✓
+                </div>
+
+                <p className="mt-5 text-xs font-bold uppercase tracking-[0.16em] text-emerald-600">
+                  Payment Successful
+                </p>
+
+                <h2 className="mt-2 text-2xl font-bold tracking-tight text-slate-900">
+                  Payment Completed
+                </h2>
+
+                <p className="mt-2 text-sm leading-6 text-slate-500">
+                  Your payment has been recorded and your appointment request has been submitted.
+                </p>
+
+                <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left">
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-sm text-slate-500">
+                      Amount Paid
+                    </span>
+
+                    <span className="text-sm font-bold text-slate-900">
+                      ₹{selectedFee}
+                    </span>
+                  </div>
+
+                  <div className="mt-3 flex items-center justify-between gap-4">
+                    <span className="text-sm text-slate-500">
+                      Consultation
+                    </span>
+
+                    <span className="text-sm font-semibold text-slate-900">
+                      {consultationType === "online"
+                        ? "Online"
+                        : "In-person"}
+                    </span>
+                  </div>
+
+                  <div className="mt-3 flex items-center justify-between gap-4">
+                    <span className="text-sm text-slate-500">
+                      Method
+                    </span>
+
+                    <span className="text-sm font-semibold uppercase text-slate-900">
+                      {paymentMethod === "netbanking"
+                        ? "Net Banking"
+                        : paymentMethod}
+                    </span>
+                  </div>
+
+                  <div className="mt-3 flex items-center justify-between gap-4">
+                    <span className="text-sm text-slate-500">
+                      Transaction ID
+                    </span>
+
+                    <span className="text-right text-xs font-semibold text-slate-900">
+                      {paymentTransactionId}
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setPaymentOpen(false)}
+                  className="mt-6 w-full rounded-xl bg-emerald-600 px-5 py-3.5 text-sm font-bold text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-emerald-700 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+                >
+                  Continue
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </main>
   );
 }
@@ -702,8 +1163,8 @@ export default function BookingPage() {
   return (
     <Suspense
       fallback={
-        <main className="flex min-h-screen items-center justify-center bg-[#f7faf9]">
-          <p className="text-slate-500">
+        <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#f7faf9] via-white to-emerald-50/30 px-4">
+          <p className="text-sm text-slate-500">
             Loading booking page...
           </p>
         </main>
