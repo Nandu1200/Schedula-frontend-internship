@@ -12,6 +12,8 @@ export const doctors: Doctor[] = [
     hospital: "City Care Hospital",
     location: "Delhi",
     consultationFee: 499,
+    onlineFee: 499,
+    inPersonFee: 499,
     bio: "Experienced general physician providing comprehensive healthcare and preventive care.",
   },
   {
@@ -25,6 +27,8 @@ export const doctors: Doctor[] = [
     hospital: "Heart Care Hospital",
     location: "Delhi",
     consultationFee: 699,
+    onlineFee: 699,
+    inPersonFee: 699,
     bio: "Cardiology specialist focused on heart health, diagnosis, and long-term patient care.",
   },
   {
@@ -38,6 +42,8 @@ export const doctors: Doctor[] = [
     hospital: "Sunrise Medical Center",
     location: "Mumbai",
     consultationFee: 599,
+    onlineFee: 599,
+    inPersonFee: 599,
     bio: "General medicine specialist with extensive experience in primary and preventive healthcare.",
   },
 ];

@@ -6,7 +6,8 @@ export type NotificationType =
   | "reminder"
   | "missed"
   | "completed"
-  | "prescription";
+  | "prescription"
+  | "delay";
 
 export type Notification = {
   id: string;
