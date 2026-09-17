@@ -38,6 +38,10 @@ export type Appointment = {
   startsAt: string;
   durationMinutes: number;
 
+  // Actual time when the doctor finishes the consultation.
+  // Used to calculate consultation delay for online appointments.
+  actualEndAt?: string;
+
   status: AppointmentStatus;
   consultationType?: ConsultationType;
 

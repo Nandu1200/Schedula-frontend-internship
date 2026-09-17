@@ -476,6 +476,9 @@ export default function PatientDashboardPage() {
       case "prescription":
         return "📄";
 
+      case "delay":
+        return "⏳";
+
       default:
         return "🔔";
     }

@@ -3,8 +3,18 @@
 import { useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { updateAppointment } from "@/store/appointmentSlice";
+import {
+  setAppointments,
+  updateAppointment,
+} from "@/store/appointmentSlice";
 import type { Appointment } from "@/types/appointment";
+import { addNotification } from "@/lib/utils/notifications";
+import {
+  getConsultationDelayMinutes,
+} from "@/lib/utils/consultationDelay";
+import {
+  shiftOnlineAppointments,
+} from "@/lib/utils/shiftOnlineAppointments";
 
 export default function DoctorConsultationPage() {
   const params = useParams();
@@ -21,7 +31,8 @@ export default function DoctorConsultationPage() {
 
   const [micOn, setMicOn] = useState(true);
   const [cameraOn, setCameraOn] = useState(true);
-  const [consultationEnded, setConsultationEnded] = useState(false);
+  const [consultationEnded, setConsultationEnded] =
+    useState(false);
   const [finishing, setFinishing] = useState(false);
 
   const appointmentTime = useMemo(() => {
@@ -42,49 +53,190 @@ export default function DoctorConsultationPage() {
 
     setFinishing(true);
 
-    /*
-     * Update appointment status in Redux.
-     */
-    dispatch(
-      updateAppointment({
-        appointmentId: appointment.id,
-        updates: {
-          status: "completed",
-        },
-      })
-    );
+    // Store the exact time when the doctor finishes the consultation.
+    const actualEndAt = new Date().toISOString();
 
-    /*
-     * Persist completed status in localStorage.
-     */
+    // Calculate how late the online consultation finished.
+    const delayMinutes =
+      getConsultationDelayMinutes({
+        ...appointment,
+        actualEndAt,
+      });
+
     try {
       const storedAppointments =
         localStorage.getItem("appointments");
 
-      if (storedAppointments) {
-        const allAppointments =
-          JSON.parse(storedAppointments) as Appointment[];
+      const allAppointments = storedAppointments
+        ? (JSON.parse(storedAppointments) as Appointment[])
+        : [];
 
-        const updatedAppointments =
-          allAppointments.map((item) =>
-            item.id === appointment.id
-              ? {
-                  ...item,
-                  status: "completed" as const,
-                }
-              : item
-          );
-
-        localStorage.setItem(
-          "appointments",
-          JSON.stringify(updatedAppointments)
+      // Mark the current consultation as completed
+      // and store its actual end time.
+      const appointmentsWithCompletedConsultation =
+        allAppointments.map((item) =>
+          item.id === appointment.id
+            ? {
+                ...item,
+                status: "completed" as const,
+                actualEndAt,
+              }
+            : item
         );
-      }
-    } catch {
+
+      // Shift future online appointments when
+      // this consultation finished late.
+      const updatedAppointments =
+        shiftOnlineAppointments(
+          appointmentsWithCompletedConsultation,
+          {
+            ...appointment,
+            status: "completed",
+            actualEndAt,
+          },
+          delayMinutes
+        );
+
       /*
-       * Redux state is already updated.
-       * Ignore localStorage parsing errors.
+       * Notify patients affected by the online delay.
+       *
+       * We compare the old and new appointment times.
+       * If an online appointment was shifted, its patient
+       * receives a delay notification with the new time.
        */
+      if (delayMinutes > 0) {
+        const updatedAppointmentMap = new Map(
+          updatedAppointments.map((item) => [
+            item.id,
+            item,
+          ])
+        );
+
+        allAppointments.forEach((previousAppointment) => {
+          const updatedAppointment =
+            updatedAppointmentMap.get(
+              previousAppointment.id
+            );
+
+          if (
+            !updatedAppointment ||
+            updatedAppointment.id === appointment.id ||
+            updatedAppointment.consultationType !== "online" ||
+            previousAppointment.startsAt ===
+              updatedAppointment.startsAt ||
+            !updatedAppointment.patient.id
+          ) {
+            return;
+          }
+
+          const oldStartAt = new Date(
+            previousAppointment.startsAt
+          ).getTime();
+
+          const completedStartAt = new Date(
+            appointment.startsAt
+          ).getTime();
+
+          if (oldStartAt <= completedStartAt) {
+            return;
+          }
+
+          const newAppointmentTime =
+            new Intl.DateTimeFormat("en-IN", {
+              dateStyle: "medium",
+              timeStyle: "short",
+            }).format(
+              new Date(updatedAppointment.startsAt)
+            );
+
+          addNotification({
+            id: `notification-${Date.now()}-${updatedAppointment.id}-delay`,
+            userId: updatedAppointment.patient.id,
+            type: "delay",
+            title: "Online Consultation Delayed",
+            message: `Your online consultation with ${updatedAppointment.clinician} has been delayed by ${delayMinutes} minute${
+              delayMinutes === 1 ? "" : "s"
+            }. Your new appointment time is ${newAppointmentTime}. The doctor will join soon.`,
+            appointmentId: updatedAppointment.id,
+            createdAt: new Date().toISOString(),
+            read: false,
+          });
+        });
+
+        /*
+         * In-person appointments do not shift automatically.
+         * Notify the next upcoming in-person patient that
+         * the doctor is running late.
+         */
+        const completedStartAt = new Date(
+          appointment.startsAt
+        ).getTime();
+
+        const nextInPersonAppointment =
+          updatedAppointments
+            .filter((item) => {
+              if (
+                item.id === appointment.id ||
+                item.consultationType === "online" ||
+                item.status === "cancelled" ||
+                item.status === "completed" ||
+                !item.patient.id
+              ) {
+                return false;
+              }
+
+              return (
+                item.clinician === appointment.clinician &&
+                new Date(item.startsAt).getTime() >
+                  completedStartAt
+              );
+            })
+            .sort(
+              (a, b) =>
+                new Date(a.startsAt).getTime() -
+                new Date(b.startsAt).getTime()
+            )[0];
+
+        if (
+          nextInPersonAppointment?.patient.id
+        ) {
+          addNotification({
+            id: `notification-${Date.now()}-${nextInPersonAppointment.id}-inperson-delay`,
+            userId:
+              nextInPersonAppointment.patient.id,
+            type: "delay",
+            title: "Doctor Is Running Late",
+            message: `${nextInPersonAppointment.clinician} is running approximately ${delayMinutes} minute${
+              delayMinutes === 1 ? "" : "s"
+            } late due to the previous consultation. Your in-person appointment time remains unchanged. Please expect a short wait.`,
+            appointmentId:
+              nextInPersonAppointment.id,
+            createdAt: new Date().toISOString(),
+            read: false,
+          });
+        }
+      }
+
+      // Update Redux with all appointment changes.
+      dispatch(setAppointments(updatedAppointments));
+
+      // Persist all appointment changes in localStorage.
+      localStorage.setItem(
+        "appointments",
+        JSON.stringify(updatedAppointments)
+      );
+    } catch {
+      // Keep Redux updated even if localStorage
+      // contains invalid or unavailable data.
+      dispatch(
+        updateAppointment({
+          appointmentId: appointment.id,
+          updates: {
+            status: "completed",
+            actualEndAt,
+          },
+        })
+      );
     }
 
     setConsultationEnded(true);
