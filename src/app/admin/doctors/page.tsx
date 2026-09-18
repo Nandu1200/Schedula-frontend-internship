@@ -7,6 +7,20 @@ import StatusBadge from "@/components/admin/StatusBadge";
 import type { Doctor } from "@/types/doctor";
 import type { AdminDoctorStatus } from "@/types/admin";
 
+const getVerificationStatus = (
+  doctorId: string
+): AdminDoctorStatus => {
+  const adminDoctor = adminDoctors.find(
+    (doctor) => doctor.doctorId === doctorId
+  );
+
+  if (adminDoctor) {
+    return adminDoctor.verificationStatus;
+  }
+
+  return "pending";
+};
+
 export default function AdminDoctorsPage() {
   const [allDoctors, setAllDoctors] =
     useState<Doctor[]>(doctors);
@@ -21,6 +35,16 @@ export default function AdminDoctorsPage() {
 
   const [verificationFilter, setVerificationFilter] =
     useState<"all" | AdminDoctorStatus>("all");
+
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const [doctorToDeactivate, setDoctorToDeactivate] =
+    useState<Doctor | null>(null);
+
+  const [doctorToActivate, setDoctorToActivate] =
+    useState<Doctor | null>(null);
+
+  const doctorsPerPage = 5;
 
   useEffect(() => {
     const loadRegisteredDoctor = () => {
@@ -57,26 +81,142 @@ export default function AdminDoctorsPage() {
     loadRegisteredDoctor();
   }, []);
 
-  const getVerificationStatus = (
-    doctorId: string
-  ): AdminDoctorStatus => {
-    const adminDoctor = adminDoctors.find(
-      (doctor) => doctor.doctorId === doctorId
-    );
-
-    if (adminDoctor) {
-      return adminDoctor.verificationStatus;
-    }
-
-    return "pending";
-  };
-
   const handleViewDoctor = (doctor: Doctor) => {
     setSelectedDoctor(doctor);
   };
 
   const handleCloseModal = () => {
     setSelectedDoctor(null);
+  };
+
+  const handleOpenActivateModal = (
+    doctor: Doctor
+  ) => {
+    setDoctorToActivate(doctor);
+  };
+
+  const handleCloseActivateModal = () => {
+    setDoctorToActivate(null);
+  };
+
+  const handleConfirmActivate = () => {
+    if (!doctorToActivate) {
+      return;
+    }
+
+    const doctorId = doctorToActivate.id;
+
+    setAllDoctors((currentDoctors) =>
+      currentDoctors.map((doctor) =>
+        doctor.id === doctorId
+          ? {
+              ...doctor,
+              status: "active",
+            }
+          : doctor
+      )
+    );
+
+    if (selectedDoctor?.id === doctorId) {
+      setSelectedDoctor({
+        ...selectedDoctor,
+        status: "active",
+      });
+    }
+
+    const storedDoctor =
+      localStorage.getItem("registeredDoctor");
+
+    if (storedDoctor) {
+      try {
+        const registeredDoctor = JSON.parse(
+          storedDoctor
+        ) as Doctor;
+
+        if (registeredDoctor.id === doctorId) {
+          localStorage.setItem(
+            "registeredDoctor",
+            JSON.stringify({
+              ...registeredDoctor,
+              status: "active",
+            })
+          );
+
+          window.dispatchEvent(
+            new Event("registered-doctor-changed")
+          );
+        }
+      } catch {
+        // Ignore invalid localStorage data.
+      }
+    }
+
+    setDoctorToActivate(null);
+  };
+
+  const handleOpenDeactivateModal = (
+    doctor: Doctor
+  ) => {
+    setDoctorToDeactivate(doctor);
+  };
+
+  const handleCloseDeactivateModal = () => {
+    setDoctorToDeactivate(null);
+  };
+
+  const handleConfirmDeactivate = () => {
+    if (!doctorToDeactivate) {
+      return;
+    }
+
+    const doctorId = doctorToDeactivate.id;
+
+    setAllDoctors((currentDoctors) =>
+      currentDoctors.map((doctor) =>
+        doctor.id === doctorId
+          ? {
+              ...doctor,
+              status: "inactive",
+            }
+          : doctor
+      )
+    );
+
+    if (selectedDoctor?.id === doctorId) {
+      setSelectedDoctor({
+        ...selectedDoctor,
+        status: "inactive",
+      });
+    }
+
+    const storedDoctor =
+      localStorage.getItem("registeredDoctor");
+
+    if (storedDoctor) {
+      try {
+        const registeredDoctor = JSON.parse(
+          storedDoctor
+        ) as Doctor;
+
+        if (registeredDoctor.id === doctorId) {
+          localStorage.setItem(
+            "registeredDoctor",
+            JSON.stringify({
+              ...registeredDoctor,
+              status: "inactive",
+            })
+          );
+
+          window.dispatchEvent(
+            new Event("registered-doctor-changed")
+          );
+        }
+      } catch {
+        // Ignore invalid localStorage data.
+      }
+    }
+
+    setDoctorToDeactivate(null);
   };
 
   const specialties = useMemo(() => {
@@ -123,10 +263,65 @@ export default function AdminDoctorsPage() {
     verificationFilter,
   ]);
 
+  const totalPages = Math.ceil(
+    filteredDoctors.length / doctorsPerPage
+  );
+
+  const safeCurrentPage =
+    totalPages === 0
+      ? 1
+      : Math.min(currentPage, totalPages);
+
+  const startIndex =
+    (safeCurrentPage - 1) * doctorsPerPage;
+
+  const paginatedDoctors = filteredDoctors.slice(
+    startIndex,
+    startIndex + doctorsPerPage
+  );
+
+  const handleSearchChange = (
+    value: string
+  ) => {
+    setSearchTerm(value);
+    setCurrentPage(1);
+  };
+
+  const handleSpecialtyChange = (
+    value: string
+  ) => {
+    setSpecialtyFilter(value);
+    setCurrentPage(1);
+  };
+
+  const handleVerificationChange = (
+    value: "all" | AdminDoctorStatus
+  ) => {
+    setVerificationFilter(value);
+    setCurrentPage(1);
+  };
+
   const handleClearFilters = () => {
     setSearchTerm("");
     setSpecialtyFilter("all");
     setVerificationFilter("all");
+    setCurrentPage(1);
+  };
+
+  const handlePreviousPage = () => {
+    setCurrentPage((page) =>
+      Math.max(page - 1, 1)
+    );
+  };
+
+  const handleNextPage = () => {
+    setCurrentPage((page) =>
+      Math.min(page + 1, totalPages)
+    );
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
   };
 
   const hasActiveFilters =
@@ -186,7 +381,9 @@ export default function AdminDoctorsPage() {
                   type="search"
                   value={searchTerm}
                   onChange={(event) =>
-                    setSearchTerm(event.target.value)
+                    handleSearchChange(
+                      event.target.value
+                    )
                   }
                   placeholder="Search name, email, specialty..."
                   className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
@@ -206,7 +403,9 @@ export default function AdminDoctorsPage() {
                   id="specialty-filter"
                   value={specialtyFilter}
                   onChange={(event) =>
-                    setSpecialtyFilter(event.target.value)
+                    handleSpecialtyChange(
+                      event.target.value
+                    )
                   }
                   className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
                 >
@@ -238,7 +437,7 @@ export default function AdminDoctorsPage() {
                   id="verification-filter"
                   value={verificationFilter}
                   onChange={(event) =>
-                    setVerificationFilter(
+                    handleVerificationChange(
                       event.target.value as
                         | "all"
                         | AdminDoctorStatus
@@ -282,7 +481,7 @@ export default function AdminDoctorsPage() {
 
         {/* Doctors Table */}
         <div className="overflow-x-auto">
-          <table className="min-w-[1150px] w-full">
+          <table className="min-w-[1250px] w-full">
             <thead className="bg-slate-50">
               <tr className="border-b border-slate-200 text-left">
                 <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -314,6 +513,10 @@ export default function AdminDoctorsPage() {
                 </th>
 
                 <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Status
+                </th>
+
+                <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wide text-slate-500">
                   Verification
                 </th>
 
@@ -327,7 +530,7 @@ export default function AdminDoctorsPage() {
               {filteredDoctors.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={9}
+                    colSpan={10}
                     className="px-6 py-12 text-center"
                   >
                     <p className="text-sm font-semibold text-slate-700">
@@ -350,7 +553,7 @@ export default function AdminDoctorsPage() {
                   </td>
                 </tr>
               ) : (
-                filteredDoctors.map((doctor) => {
+                paginatedDoctors.map((doctor) => {
                   const verificationStatus =
                     getVerificationStatus(doctor.id);
 
@@ -402,6 +605,21 @@ export default function AdminDoctorsPage() {
                         ₹{doctor.consultationFee}
                       </td>
 
+                      {/* Status */}
+                      <td className="px-6 py-4">
+                        <span
+                          className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${
+                            doctor.status === "active"
+                              ? "bg-emerald-50 text-emerald-700"
+                              : "bg-slate-100 text-slate-600"
+                          }`}
+                        >
+                          {doctor.status === "active"
+                            ? "Active"
+                            : "Inactive"}
+                        </span>
+                      </td>
+
                       {/* Verification */}
                       <td className="px-6 py-4">
                         <StatusBadge
@@ -411,15 +629,43 @@ export default function AdminDoctorsPage() {
 
                       {/* Actions */}
                       <td className="px-6 py-4">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleViewDoctor(doctor)
-                          }
-                          className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700"
-                        >
-                          View
-                        </button>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleViewDoctor(doctor)
+                            }
+                            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700"
+                          >
+                            View
+                          </button>
+
+                          {doctor.status === "active" ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleOpenDeactivateModal(
+                                  doctor
+                                )
+                              }
+                              className="rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-50"
+                            >
+                              Deactivate
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleOpenActivateModal(
+                                  doctor
+                                )
+                              }
+                              className="rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs font-semibold text-emerald-600 transition hover:bg-emerald-50"
+                            >
+                              Activate
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -428,6 +674,82 @@ export default function AdminDoctorsPage() {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex flex-col gap-4 border-t border-slate-200 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-slate-500">
+              Showing{" "}
+              <span className="font-semibold text-slate-700">
+                {startIndex + 1}
+              </span>{" "}
+              to{" "}
+              <span className="font-semibold text-slate-700">
+                {Math.min(
+                  startIndex + doctorsPerPage,
+                  filteredDoctors.length
+                )}
+              </span>{" "}
+              of{" "}
+              <span className="font-semibold text-slate-700">
+                {filteredDoctors.length}
+              </span>{" "}
+              doctors
+            </p>
+
+            <div className="flex items-center gap-2">
+              {/* Previous */}
+              <button
+                type="button"
+                onClick={handlePreviousPage}
+                disabled={safeCurrentPage === 1}
+                className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Previous
+              </button>
+
+              {/* Page Numbers */}
+              <div className="flex items-center gap-1">
+                {Array.from(
+                  { length: totalPages },
+                  (_, index) => index + 1
+                ).map((page) => (
+                  <button
+                    key={page}
+                    type="button"
+                    onClick={() =>
+                      handlePageChange(page)
+                    }
+                    aria-current={
+                      safeCurrentPage === page
+                        ? "page"
+                        : undefined
+                    }
+                    className={`h-9 min-w-9 rounded-lg px-3 text-sm font-semibold transition ${
+                      safeCurrentPage === page
+                        ? "bg-emerald-600 text-white"
+                        : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ))}
+              </div>
+
+              {/* Next */}
+              <button
+                type="button"
+                onClick={handleNextPage}
+                disabled={
+                  safeCurrentPage === totalPages
+                }
+                className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Doctor Details Modal */}
@@ -479,11 +801,27 @@ export default function AdminDoctorsPage() {
                     </p>
                   </div>
 
-                  <StatusBadge
-                    status={getVerificationStatus(
-                      selectedDoctor.id
-                    )}
-                  />
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    <span
+                      className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${
+                        selectedDoctor.status ===
+                        "active"
+                          ? "bg-emerald-50 text-emerald-700"
+                          : "bg-slate-100 text-slate-600"
+                      }`}
+                    >
+                      {selectedDoctor.status ===
+                      "active"
+                        ? "Active"
+                        : "Inactive"}
+                    </span>
+
+                    <StatusBadge
+                      status={getVerificationStatus(
+                        selectedDoctor.id
+                      )}
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -636,6 +974,108 @@ export default function AdminDoctorsPage() {
                 className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Activate Confirmation Modal */}
+      {doctorToActivate && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 p-4"
+          onClick={handleCloseActivateModal}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl bg-white shadow-2xl"
+            onClick={(event) =>
+              event.stopPropagation()
+            }
+          >
+            <div className="p-6">
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 text-xl font-bold text-emerald-600">
+                ✓
+              </div>
+
+              <h2 className="text-lg font-bold text-slate-900">
+                Activate Doctor?
+              </h2>
+
+              <p className="mt-2 text-sm leading-6 text-slate-500">
+                Are you sure you want to activate{" "}
+                <span className="font-semibold text-slate-700">
+                  {doctorToActivate.name}
+                </span>
+                ? The doctor will be marked as active.
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-3 border-t border-slate-200 px-6 py-4">
+              <button
+                type="button"
+                onClick={handleCloseActivateModal}
+                className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={handleConfirmActivate}
+                className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
+              >
+                Activate
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Deactivate Confirmation Modal */}
+      {doctorToDeactivate && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 p-4"
+          onClick={handleCloseDeactivateModal}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl bg-white shadow-2xl"
+            onClick={(event) =>
+              event.stopPropagation()
+            }
+          >
+            <div className="p-6">
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-50 text-xl text-red-600">
+                !
+              </div>
+
+              <h2 className="text-lg font-bold text-slate-900">
+                Deactivate Doctor?
+              </h2>
+
+              <p className="mt-2 text-sm leading-6 text-slate-500">
+                Are you sure you want to deactivate{" "}
+                <span className="font-semibold text-slate-700">
+                  {doctorToDeactivate.name}
+                </span>
+                ? The doctor will be marked as inactive.
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-3 border-t border-slate-200 px-6 py-4">
+              <button
+                type="button"
+                onClick={handleCloseDeactivateModal}
+                className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={handleConfirmDeactivate}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700"
+              >
+                Deactivate
               </button>
             </div>
           </div>

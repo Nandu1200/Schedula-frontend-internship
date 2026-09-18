@@ -25,6 +25,11 @@ type DoctorProfile = {
   inPersonFee?: number;
 };
 
+type VerificationStatus =
+  | "pending"
+  | "approved"
+  | "rejected";
+
 function formatDate(date: string) {
   if (!date) return "Select a date";
 
@@ -140,6 +145,12 @@ export default function DoctorProfilePage() {
   const [loading, setLoading] =
     useState(true);
 
+  const [verificationStatus, setVerificationStatus] =
+    useState<VerificationStatus>("pending");
+
+  const [rejectionReason, setRejectionReason] =
+    useState("");
+
   const [slots, setSlots] =
     useState<AvailabilitySlot[]>([]);
 
@@ -173,6 +184,52 @@ export default function DoctorProfilePage() {
   const today = getTodayDate();
 
   useEffect(() => {
+    const handleVerificationChange = () => {
+      const storedDoctor =
+        localStorage.getItem("loggedInDoctor");
+
+      if (!storedDoctor) return;
+
+      try {
+        const doctor =
+          JSON.parse(storedDoctor) as DoctorProfile;
+
+        const storedStatus = localStorage.getItem(
+          `doctorVerificationStatus-${doctor.id}`
+        );
+
+        const storedReason =
+          localStorage.getItem(
+            `doctorVerificationRejectionReason-${doctor.id}`
+          ) ?? "";
+
+        if (
+          storedStatus === "approved" ||
+          storedStatus === "rejected" ||
+          storedStatus === "pending"
+        ) {
+          setVerificationStatus(storedStatus);
+          setRejectionReason(
+            storedStatus === "rejected"
+              ? storedReason
+              : ""
+          );
+        }
+      } catch {
+        // Ignore invalid stored doctor data.
+      }
+    };
+
+    window.addEventListener(
+      "doctor-verification-changed",
+      handleVerificationChange
+    );
+
+    window.addEventListener(
+      "storage",
+      handleVerificationChange
+    );
+
     const timer = window.setTimeout(() => {
       const currentDate = getTodayDate();
 
@@ -206,6 +263,34 @@ export default function DoctorProfilePage() {
 
           setProfile(doctor);
           setFormData(doctor);
+
+          const storedVerificationStatus =
+            localStorage.getItem(
+              `doctorVerificationStatus-${doctor.id}`
+            );
+
+          const storedRejectionReason =
+            localStorage.getItem(
+              `doctorVerificationRejectionReason-${doctor.id}`
+            ) ?? "";
+
+          if (
+            storedVerificationStatus === "approved" ||
+            storedVerificationStatus === "rejected" ||
+            storedVerificationStatus === "pending"
+          ) {
+            setVerificationStatus(
+              storedVerificationStatus
+            );
+          } else {
+            setVerificationStatus("pending");
+          }
+
+          setRejectionReason(
+            storedVerificationStatus === "rejected"
+              ? storedRejectionReason
+              : ""
+          );
 
           const storedSlots =
             localStorage.getItem(
@@ -251,8 +336,17 @@ export default function DoctorProfilePage() {
       setLoading(false);
     }, 0);
 
-    return () =>
+    return () => {
       window.clearTimeout(timer);
+      window.removeEventListener(
+        "doctor-verification-changed",
+        handleVerificationChange
+      );
+      window.removeEventListener(
+        "storage",
+        handleVerificationChange
+      );
+    };
   }, []);
 
   const handleChange = (
@@ -635,6 +729,26 @@ export default function DoctorProfilePage() {
         slot.status === "booked"
     ).length;
 
+  const handleResubmitVerification = () => {
+    if (!profile) return;
+
+    localStorage.setItem(
+      `doctorVerificationStatus-${profile.id}`,
+      "pending"
+    );
+
+    localStorage.removeItem(
+      `doctorVerificationRejectionReason-${profile.id}`
+    );
+
+    setVerificationStatus("pending");
+    setRejectionReason("");
+
+    window.dispatchEvent(
+      new Event("doctor-verification-changed")
+    );
+  };
+
   if (loading) {
     return (
       <main className="min-h-screen bg-[#f2faf7] px-4 py-8 sm:px-6">
@@ -747,6 +861,61 @@ export default function DoctorProfilePage() {
                 Edit Profile
               </button>
             )}
+          </div>
+        </section>
+
+        <section className="mt-6 rounded-[28px] border border-slate-200/80 bg-white shadow-[0_18px_50px_rgba(15,23,42,0.05)]">
+          <div className="flex flex-col gap-4 px-6 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-8">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-emerald-600">
+                Verification
+              </p>
+
+              <h2 className="mt-1 text-xl font-bold text-slate-900">
+                Doctor Verification Status
+              </h2>
+
+              {verificationStatus === "rejected" &&
+                rejectionReason && (
+                  <div className="mt-4 rounded-xl border border-red-100 bg-red-50 px-4 py-3">
+                    <p className="text-xs font-bold uppercase tracking-wide text-red-600">
+                      Rejection Reason
+                    </p>
+
+                    <p className="mt-1 text-sm leading-6 text-red-700">
+                      {rejectionReason}
+                    </p>
+                  </div>
+                )}
+            </div>
+
+            <div className="flex shrink-0 flex-col items-start gap-3 sm:items-end">
+              <span
+                className={`inline-flex rounded-full border px-3 py-1.5 text-xs font-semibold ${
+                  verificationStatus === "approved"
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                    : verificationStatus === "rejected"
+                      ? "border-red-200 bg-red-50 text-red-700"
+                      : "border-amber-200 bg-amber-50 text-amber-700"
+                }`}
+              >
+                {verificationStatus === "approved"
+                  ? "Approved"
+                  : verificationStatus === "rejected"
+                    ? "Rejected"
+                    : "Pending"}
+              </span>
+
+              {verificationStatus === "rejected" && (
+                <button
+                  type="button"
+                  onClick={handleResubmitVerification}
+                  className="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-emerald-700 hover:shadow-lg"
+                >
+                  Resubmit Verification
+                </button>
+              )}
+            </div>
           </div>
         </section>
 

@@ -134,32 +134,6 @@ export default function LoginPage() {
                   →
                 </span>
               </Link>
-
-              {/* ================= Admin Login (NEW) ================= */}
-              <Link
-                href="/login/admin"
-                className="group flex items-center gap-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md"
-              >
-                <div className="grid size-14 shrink-0 place-items-center rounded-xl bg-emerald-100 text-2xl text-emerald-700">
-                  🛡️
-                </div>
-
-                <div className="min-w-0 flex-1">
-                  <h3 className="text-lg font-bold text-slate-900">
-                    Admin Login
-                  </h3>
-
-                  <p className="mt-1 text-sm leading-5 text-slate-500">
-                    Access the Admin Portal to manage doctors, patients,
-                    appointments and platform settings.
-                  </p>
-                </div>
-
-                <span className="text-2xl text-emerald-600 transition group-hover:translate-x-1">
-                  →
-                </span>
-              </Link>
-              {/* ===================================================== */}
             </div>
 
             {/* Register */}

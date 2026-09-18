@@ -1,6 +1,8 @@
 export type Doctor = {
   id: string;
 
+  status: "active" | "inactive";
+
   name: string;
 
   specialty: string;
@@ -26,4 +28,8 @@ export type Doctor = {
   bio: string;
 
   avatarUrl?: string;
+
+  qualificationDocument?: string;
+
+  licenseDocument?: string;
 };

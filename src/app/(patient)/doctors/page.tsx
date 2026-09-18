@@ -4,7 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
 import { doctors as mockDoctors } from "@/lib/mock-data/doctors";
+import { adminDoctors } from "@/lib/mock-data/admin/doctors";
 import type { Doctor } from "@/types/doctor";
+import type { AdminDoctorStatus } from "@/types/admin";
 import type { AvailabilitySlot } from "@/types/availability";
 
 const getInitials = (name: string) => {
@@ -48,6 +50,41 @@ const getDoctorIdFromAppointmentId = (appointmentId: string) => {
   return doctorId || null;
 };
 
+const getDoctorVerificationStatus = (
+  doctorId: string
+): AdminDoctorStatus => {
+  const storedStatus = localStorage.getItem(
+    `doctorVerificationStatus-${doctorId}`
+  );
+
+  if (
+    storedStatus === "pending" ||
+    storedStatus === "approved" ||
+    storedStatus === "rejected"
+  ) {
+    return storedStatus;
+  }
+
+  const adminDoctor = adminDoctors.find(
+    (doctor) => doctor.doctorId === doctorId
+  );
+
+  return adminDoctor?.verificationStatus ?? "pending";
+};
+
+const buildVerificationStatusMap = (
+  doctorList: Doctor[]
+): Record<string, AdminDoctorStatus> => {
+  return doctorList.reduce<
+    Record<string, AdminDoctorStatus>
+  >((statusMap, doctor) => {
+    statusMap[doctor.id] =
+      getDoctorVerificationStatus(doctor.id);
+
+    return statusMap;
+  }, {});
+};
+
 const getMockDoctorRatings = () => {
   const demoRatings = [
     { average: 4.5, count: 24 },
@@ -75,6 +112,10 @@ export default function DoctorsPage() {
   const [doctorRatings, setDoctorRatings] = useState<
     Record<string, DoctorRating>
   >({});
+
+  const [verificationStatuses, setVerificationStatuses] =
+    useState<Record<string, AdminDoctorStatus>>({});
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -231,6 +272,38 @@ export default function DoctorsPage() {
     loadDoctors();
   }, []);
 
+  useEffect(() => {
+    const syncVerificationStatuses = () => {
+      setVerificationStatuses(
+        buildVerificationStatusMap(doctors)
+      );
+    };
+
+    syncVerificationStatuses();
+
+    window.addEventListener(
+      "storage",
+      syncVerificationStatuses
+    );
+
+    window.addEventListener(
+      "doctor-verification-changed",
+      syncVerificationStatuses
+    );
+
+    return () => {
+      window.removeEventListener(
+        "storage",
+        syncVerificationStatuses
+      );
+
+      window.removeEventListener(
+        "doctor-verification-changed",
+        syncVerificationStatuses
+      );
+    };
+  }, [doctors]);
+
   const doctorCountText = useMemo(() => {
     if (doctors.length === 1) {
       return "1 doctor available";
@@ -370,9 +443,22 @@ export default function DoctorsPage() {
                     </div>
 
                     <div className="min-w-0">
-                      <h2 className="truncate text-lg font-bold text-slate-900">
-                        {doctor.name}
-                      </h2>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h2 className="truncate text-lg font-bold text-slate-900">
+                          {doctor.name}
+                        </h2>
+
+                        {verificationStatuses[doctor.id] ===
+                          "approved" && (
+                          <span
+                            className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700"
+                            aria-label="Verified Doctor"
+                          >
+                            <span aria-hidden="true">✓</span>
+                            Verified Doctor
+                          </span>
+                        )}
+                      </div>
 
                       <p className="mt-1 text-sm font-semibold text-emerald-700">
                         {doctor.specialty}

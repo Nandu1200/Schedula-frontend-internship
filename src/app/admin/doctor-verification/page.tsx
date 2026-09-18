@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useEffect,
   useMemo,
   useState,
   useSyncExternalStore,
@@ -26,11 +27,21 @@ const subscribeToRegisteredDoctor = (
     callback
   );
 
+  window.addEventListener(
+    "doctor-verification-changed",
+    callback
+  );
+
   return () => {
     window.removeEventListener("storage", callback);
 
     window.removeEventListener(
       "registered-doctor-changed",
+      callback
+    );
+
+    window.removeEventListener(
+      "doctor-verification-changed",
       callback
     );
   };
@@ -49,8 +60,28 @@ const getServerRegisteredDoctorSnapshot = () => {
 /* -------------------------------------------------------------------------- */
 
 const getVerificationStatus = (
-  doctorId: string
+  doctorId: string,
+  verificationOverrides: Record<
+    string,
+    AdminDoctorStatus
+  >
 ): AdminDoctorStatus => {
+  const storedStatus = localStorage.getItem(
+    `doctorVerificationStatus-${doctorId}`
+  );
+
+  if (
+    storedStatus === "pending" ||
+    storedStatus === "approved" ||
+    storedStatus === "rejected"
+  ) {
+    return storedStatus;
+  }
+
+  if (verificationOverrides[doctorId]) {
+    return verificationOverrides[doctorId];
+  }
+
   const adminDoctor = adminDoctors.find(
     (doctor) => doctor.doctorId === doctorId
   );
@@ -118,6 +149,27 @@ export default function DoctorVerificationPage() {
     "all" | AdminDoctorStatus
   >("pending");
 
+  const [verificationOverrides, setVerificationOverrides] =
+    useState<Record<string, AdminDoctorStatus>>({});
+
+  const [rejectionReasons, setRejectionReasons] =
+    useState<Record<string, string>>({});
+
+  const [rejectionReason, setRejectionReason] =
+    useState("");
+
+  const [rejectionError, setRejectionError] =
+    useState("");
+
+  const [confirmationAction, setConfirmationAction] =
+    useState<"approve" | "reject" | null>(null);
+
+  const [viewingDocument, setViewingDocument] =
+    useState<string | null>(null);
+
+  const [isLoading, setIsLoading] =
+    useState(true);
+
   /* ------------------------------------------------------------------------ */
   /* Read Registered Doctor                                                   */
   /* ------------------------------------------------------------------------ */
@@ -128,6 +180,29 @@ export default function DoctorVerificationPage() {
       getRegisteredDoctorSnapshot,
       getServerRegisteredDoctorSnapshot
     );
+
+  useEffect(() => {
+    const frameId = window.requestAnimationFrame(() => {
+      setIsLoading(false);
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+    };
+  }, []);
+
+  const loadError = useMemo(() => {
+    if (!registeredDoctorSnapshot) {
+      return "";
+    }
+
+    try {
+      JSON.parse(registeredDoctorSnapshot);
+      return "";
+    } catch {
+      return "We couldn't load doctor verification data.";
+    }
+  }, [registeredDoctorSnapshot]);
 
   /* ------------------------------------------------------------------------ */
   /* Build Doctor List                                                        */
@@ -154,11 +229,8 @@ export default function DoctorVerificationPage() {
       if (!doctorExists) {
         doctorList.push(registeredDoctor);
       }
-    } catch (error) {
-      console.error(
-        "Failed to parse registered doctor:",
-        error
-      );
+    } catch {
+      return doctorList;
     }
 
     return doctorList;
@@ -175,10 +247,16 @@ export default function DoctorVerificationPage() {
 
     return allDoctors.filter(
       (doctor) =>
-        getVerificationStatus(doctor.id) ===
-        statusFilter
+        getVerificationStatus(
+          doctor.id,
+          verificationOverrides
+        ) === statusFilter
     );
-  }, [allDoctors, statusFilter]);
+  }, [
+    allDoctors,
+    statusFilter,
+    verificationOverrides,
+  ]);
 
   /* ------------------------------------------------------------------------ */
   /* Verification Counts                                                      */
@@ -187,42 +265,205 @@ export default function DoctorVerificationPage() {
   const pendingCount = useMemo(() => {
     return allDoctors.filter(
       (doctor) =>
-        getVerificationStatus(doctor.id) ===
-        "pending"
+        getVerificationStatus(
+          doctor.id,
+          verificationOverrides
+        ) === "pending"
     ).length;
-  }, [allDoctors]);
+  }, [allDoctors, verificationOverrides]);
 
   const approvedCount = useMemo(() => {
     return allDoctors.filter(
       (doctor) =>
-        getVerificationStatus(doctor.id) ===
-        "approved"
+        getVerificationStatus(
+          doctor.id,
+          verificationOverrides
+        ) === "approved"
     ).length;
-  }, [allDoctors]);
+  }, [allDoctors, verificationOverrides]);
 
   const rejectedCount = useMemo(() => {
     return allDoctors.filter(
       (doctor) =>
-        getVerificationStatus(doctor.id) ===
-        "rejected"
+        getVerificationStatus(
+          doctor.id,
+          verificationOverrides
+        ) === "rejected"
     ).length;
-  }, [allDoctors]);
+  }, [allDoctors, verificationOverrides]);
 
   /* ------------------------------------------------------------------------ */
   /* Modal Handlers                                                           */
   /* ------------------------------------------------------------------------ */
 
   const handleViewDoctor = (doctor: Doctor) => {
+    const currentStatus = getVerificationStatus(
+      doctor.id,
+      verificationOverrides
+    );
+
     setSelectedDoctor(doctor);
+
+    if (currentStatus === "rejected") {
+      const storedReason = localStorage.getItem(
+        `doctorVerificationRejectionReason-${doctor.id}`
+      );
+
+      setRejectionReason(
+        rejectionReasons[doctor.id] ??
+          storedReason ??
+          ""
+      );
+    } else {
+      setRejectionReason("");
+    }
+
+    setRejectionError("");
   };
 
   const handleCloseModal = () => {
+    setSelectedDoctor(null);
+    setRejectionReason("");
+    setRejectionError("");
+  };
+
+  /* ------------------------------------------------------------------------ */
+  /* Approve Doctor                                                           */
+  /* ------------------------------------------------------------------------ */
+
+  const handleApproveDoctor = () => {
+    setConfirmationAction("approve");
+  };
+
+  const confirmApproveDoctor = (doctorId: string) => {
+    localStorage.setItem(
+      `doctorVerificationStatus-${doctorId}`,
+      "approved"
+    );
+
+    localStorage.removeItem(
+      `doctorVerificationRejectionReason-${doctorId}`
+    );
+
+    setVerificationOverrides((currentStatuses) => ({
+      ...currentStatuses,
+      [doctorId]: "approved",
+    }));
+
+    window.dispatchEvent(
+      new Event("doctor-verification-changed")
+    );
+
+    setRejectionReason("");
+    setRejectionError("");
+    setConfirmationAction(null);
+    setSelectedDoctor(null);
+  };
+
+  /* ------------------------------------------------------------------------ */
+  /* Reject Doctor                                                            */
+  /* ------------------------------------------------------------------------ */
+
+  const handleRejectDoctor = () => {
+    const trimmedReason = rejectionReason.trim();
+
+    if (!trimmedReason) {
+      setRejectionError("Rejection reason is required.");
+      return;
+    }
+
+    setConfirmationAction("reject");
+  };
+
+  const confirmRejectDoctor = (doctorId: string) => {
+    const trimmedReason = rejectionReason.trim();
+
+    localStorage.setItem(
+      `doctorVerificationStatus-${doctorId}`,
+      "rejected"
+    );
+
+    localStorage.setItem(
+      `doctorVerificationRejectionReason-${doctorId}`,
+      trimmedReason
+    );
+
+    setVerificationOverrides((currentStatuses) => ({
+      ...currentStatuses,
+      [doctorId]: "rejected",
+    }));
+
+    window.dispatchEvent(
+      new Event("doctor-verification-changed")
+    );
+
+    setRejectionReasons((currentReasons) => ({
+      ...currentReasons,
+      [doctorId]: trimmedReason,
+    }));
+
+    setRejectionReason("");
+    setRejectionError("");
+    setConfirmationAction(null);
     setSelectedDoctor(null);
   };
 
   /* ------------------------------------------------------------------------ */
   /* UI                                                                       */
   /* ------------------------------------------------------------------------ */
+
+  if (isLoading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-slate-50 p-6">
+        <div
+          className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm"
+          role="status"
+          aria-live="polite"
+        >
+          <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-emerald-600" />
+
+          <p className="mt-4 text-sm font-semibold text-slate-800">
+            Loading doctor verification...
+          </p>
+
+          <p className="mt-1 text-xs text-slate-500">
+            Please wait while verification data is loaded.
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-slate-50 p-6">
+        <div
+          className="w-full max-w-md rounded-2xl border border-red-200 bg-white p-6 text-center shadow-sm"
+          role="alert"
+        >
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-50 text-xl font-bold text-red-600">
+            !
+          </div>
+
+          <h1 className="mt-4 text-lg font-bold text-slate-900">
+            Something went wrong
+          </h1>
+
+          <p className="mt-2 text-sm leading-6 text-slate-500">
+            {loadError}
+          </p>
+
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="mt-5 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700"
+          >
+            Try Again
+          </button>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-slate-50 p-4 sm:p-6 lg:p-8">
@@ -411,7 +652,8 @@ export default function DoctorVerificationPage() {
                 filteredDoctors.map((doctor) => {
                   const verificationStatus =
                     getVerificationStatus(
-                      doctor.id
+                      doctor.id,
+                      verificationOverrides
                     );
 
                   return (
@@ -482,6 +724,72 @@ export default function DoctorVerificationPage() {
         </div>
       </div>
 
+      {/* Confirmation Modal */}
+      {confirmationAction && selectedDoctor && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 p-4"
+          onClick={() => setConfirmationAction(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2 className="text-lg font-bold text-slate-900">
+              {confirmationAction === "approve"
+                ? "Confirm Approval"
+                : "Confirm Rejection"}
+            </h2>
+
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              {confirmationAction === "approve"
+                ? `Are you sure you want to approve ${selectedDoctor.name} for verification?`
+                : `Are you sure you want to reject ${selectedDoctor.name}'s verification?`}
+            </p>
+
+            {confirmationAction === "reject" && (
+              <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-red-600">
+                  Rejection Reason
+                </p>
+                <p className="mt-1 text-sm leading-6 text-red-700">
+                  {rejectionReason.trim()}
+                </p>
+              </div>
+            )}
+
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setConfirmationAction(null)}
+                className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (confirmationAction === "approve") {
+                    confirmApproveDoctor(selectedDoctor.id);
+                  } else {
+                    confirmRejectDoctor(selectedDoctor.id);
+                  }
+                }}
+                className={`rounded-lg px-4 py-2 text-sm font-semibold text-white transition ${
+                  confirmationAction === "approve"
+                    ? "bg-emerald-600 hover:bg-emerald-700"
+                    : "bg-red-600 hover:bg-red-700"
+                }`}
+              >
+                {confirmationAction === "approve"
+                  ? "Confirm Approval"
+                  : "Confirm Rejection"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Doctor Review Modal */}
       {selectedDoctor && (
         <div
@@ -534,7 +842,8 @@ export default function DoctorVerificationPage() {
 
                   <VerificationBadge
                     status={getVerificationStatus(
-                      selectedDoctor.id
+                      selectedDoctor.id,
+                      verificationOverrides
                     )}
                   />
                 </div>
@@ -629,6 +938,104 @@ export default function DoctorVerificationPage() {
                 </div>
               </div>
 
+              {/* Verification Documents */}
+              <div>
+                <h3 className="mb-4 text-sm font-bold uppercase tracking-wide text-slate-500">
+                  Verification Documents
+                </h3>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="rounded-xl border border-slate-200 p-4">
+                    <p className="text-xs text-slate-400">
+                      Qualification Document
+                    </p>
+
+                    {selectedDoctor.qualificationDocument ? (
+                      <div className="mt-2 flex items-center justify-between gap-3">
+                        <p className="truncate text-sm font-semibold text-slate-900">
+                          {selectedDoctor.qualificationDocument}
+                        </p>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setViewingDocument(
+                              selectedDoctor.qualificationDocument ?? null
+                            )
+                          }
+                          className="shrink-0 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100"
+                        >
+                          View Document
+                        </button>
+                      </div>
+                    ) : (
+                      <p className="mt-2 text-sm text-slate-400">
+                        Not provided
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="rounded-xl border border-slate-200 p-4">
+                    <p className="text-xs text-slate-400">
+                      Medical License Document
+                    </p>
+
+                    {selectedDoctor.licenseDocument ? (
+                      <div className="mt-2 flex items-center justify-between gap-3">
+                        <p className="truncate text-sm font-semibold text-slate-900">
+                          {selectedDoctor.licenseDocument}
+                        </p>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setViewingDocument(
+                              selectedDoctor.licenseDocument ?? null
+                            )
+                          }
+                          className="shrink-0 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100"
+                        >
+                          View Document
+                        </button>
+                      </div>
+                    ) : (
+                      <p className="mt-2 text-sm text-slate-400">
+                        Not provided
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {viewingDocument && (
+                  <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
+                          Mock Document Preview
+                        </p>
+
+                        <p className="mt-1 text-sm font-semibold text-slate-900">
+                          {viewingDocument}
+                        </p>
+
+                        <p className="mt-2 text-sm leading-6 text-slate-600">
+                          This is a mock document for the frontend
+                          verification flow. No real file is attached.
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setViewingDocument(null)}
+                        className="shrink-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                      >
+                        Close
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Consultation Fees */}
               <div>
                 <h3 className="mb-4 text-sm font-bold uppercase tracking-wide text-slate-500">
@@ -680,10 +1087,102 @@ export default function DoctorVerificationPage() {
                   </p>
                 </div>
               )}
+
+              {/* Rejection Reason */}
+              {getVerificationStatus(
+                selectedDoctor.id,
+                verificationOverrides
+              ) === "pending" && (
+                <div>
+                  <h3 className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-500">
+                    Rejection Reason
+                  </h3>
+
+                  <textarea
+                    value={rejectionReason}
+                    onChange={(event) => {
+                      setRejectionReason(
+                        event.target.value
+                      );
+
+                      if (
+                        rejectionError
+                      ) {
+                        setRejectionError("");
+                      }
+                    }}
+                    placeholder="Enter the reason for rejecting this doctor's verification..."
+                    rows={4}
+                    className={`w-full resize-none rounded-xl border bg-white px-4 py-3 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:ring-2 ${
+                      rejectionError
+                        ? "border-red-300 focus:border-red-500 focus:ring-red-100"
+                        : "border-slate-300 focus:border-emerald-500 focus:ring-emerald-100"
+                    }`}
+                  />
+
+                  {rejectionError && (
+                    <p className="mt-2 text-sm font-medium text-red-600">
+                      {rejectionError}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Existing Rejection Reason */}
+              {getVerificationStatus(
+                selectedDoctor.id,
+                verificationOverrides
+              ) === "rejected" &&
+                (rejectionReasons[selectedDoctor.id] ||
+                  localStorage.getItem(
+                    `doctorVerificationRejectionReason-${selectedDoctor.id}`
+                  )) && (
+                  <div>
+                    <h3 className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-500">
+                      Rejection Reason
+                    </h3>
+
+                    <p className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-700">
+                      {rejectionReasons[selectedDoctor.id] ||
+                        localStorage.getItem(
+                          `doctorVerificationRejectionReason-${selectedDoctor.id}`
+                        )}
+                    </p>
+                  </div>
+                )}
             </div>
 
             {/* Modal Footer */}
-            <div className="flex justify-end border-t border-slate-200 px-6 py-4">
+            <div className="flex flex-col gap-3 border-t border-slate-200 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-col gap-3 sm:flex-row">
+                {getVerificationStatus(
+                  selectedDoctor.id,
+                  verificationOverrides
+                ) === "pending" && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleApproveDoctor()
+                      }
+                      className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
+                    >
+                      Approve Verification
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleRejectDoctor()
+                      }
+                      className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700"
+                    >
+                      Reject Verification
+                    </button>
+                  </>
+                )}
+              </div>
+
               <button
                 type="button"
                 onClick={handleCloseModal}

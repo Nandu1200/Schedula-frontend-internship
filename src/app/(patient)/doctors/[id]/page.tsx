@@ -8,7 +8,9 @@ import {
 } from "next/navigation";
 
 import { doctors as mockDoctors } from "@/lib/mock-data/doctors";
+import { adminDoctors } from "@/lib/mock-data/admin/doctors";
 import type { Doctor } from "@/types/doctor";
+import type { AdminDoctorStatus } from "@/types/admin";
 import type { AvailabilitySlot } from "@/types/availability";
 
 const getInitials = (name: string) => {
@@ -52,6 +54,28 @@ const getDoctorIdFromAppointmentId = (appointmentId: string) => {
   return doctorId || null;
 };
 
+const getDoctorVerificationStatus = (
+  doctorId: string
+): AdminDoctorStatus => {
+  const storedStatus = localStorage.getItem(
+    `doctorVerificationStatus-${doctorId}`
+  );
+
+  if (
+    storedStatus === "pending" ||
+    storedStatus === "approved" ||
+    storedStatus === "rejected"
+  ) {
+    return storedStatus;
+  }
+
+  const adminDoctor = adminDoctors.find(
+    (doctor) => doctor.doctorId === doctorId
+  );
+
+  return adminDoctor?.verificationStatus ?? "pending";
+};
+
 const getMockDoctorRatings = () => {
   const demoRatings = [
     { average: 4.5, count: 24 },
@@ -85,6 +109,8 @@ export default function DoctorDetailsPage() {
   const [slots, setSlots] = useState<AvailabilitySlot[]>([]);
   const [doctorRating, setDoctorRating] =
     useState<DoctorRating | null>(null);
+  const [verificationStatus, setVerificationStatus] =
+    useState<AdminDoctorStatus>("pending");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -285,6 +311,42 @@ export default function DoctorDetailsPage() {
     loadDoctor();
   }, [doctorId, followUpDate]);
 
+  useEffect(() => {
+    if (!doctorId) {
+      return;
+    }
+
+    const syncVerificationStatus = () => {
+      setVerificationStatus(
+        getDoctorVerificationStatus(doctorId)
+      );
+    };
+
+    syncVerificationStatus();
+
+    window.addEventListener(
+      "storage",
+      syncVerificationStatus
+    );
+
+    window.addEventListener(
+      "doctor-verification-changed",
+      syncVerificationStatus
+    );
+
+    return () => {
+      window.removeEventListener(
+        "storage",
+        syncVerificationStatus
+      );
+
+      window.removeEventListener(
+        "doctor-verification-changed",
+        syncVerificationStatus
+      );
+    };
+  }, [doctorId]);
+
   const slotsByDate = useMemo(() => {
     const grouped: Record<string, AvailabilitySlot[]> = {};
 
@@ -405,9 +467,21 @@ export default function DoctorDetailsPage() {
                     Doctor Profile
                   </p>
 
-                  <h1 className="mt-2 text-3xl font-bold">
-                    {doctor.name}
-                  </h1>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <h1 className="text-3xl font-bold">
+                      {doctor.name}
+                    </h1>
+
+                    {verificationStatus === "approved" && (
+                      <span
+                        className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700"
+                        aria-label="Verified Doctor"
+                      >
+                        <span aria-hidden="true">✓</span>
+                        Verified Doctor
+                      </span>
+                    )}
+                  </div>
 
                   <p className="mt-2 text-lg font-semibold text-emerald-700">
                     {doctor.specialty}
