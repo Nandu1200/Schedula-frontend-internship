@@ -8,6 +8,7 @@ export const patients: Patient[] = [
     phone: "+91 9876543213",
     age: 34,
     initials: "MP",
+    status: "active",
   },
   {
     id: "patient-002",
@@ -16,5 +17,6 @@ export const patients: Patient[] = [
     phone: "+91 9876543214",
     age: 41,
     initials: "EB",
+    status: "active",
   },
 ];

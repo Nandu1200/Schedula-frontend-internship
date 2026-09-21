@@ -5,4 +5,5 @@ export type Patient = {
   phone: string;
   age: number;
   initials: string;
+  status: "active" | "inactive";
 };
