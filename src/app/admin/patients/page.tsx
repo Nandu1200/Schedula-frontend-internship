@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { patients as mockPatients } from "@/lib/mock-data/patients";
-import { appointments as mockAppointments } from "@/lib/mock-data/appointments";
+import { getAdminAppointments } from "@/lib/utils/admin-appointments";
 import type { Appointment } from "@/types/appointment";
 import type { Patient } from "@/types/patient";
 
@@ -187,57 +187,7 @@ export default function AdminPatientsPage() {
           }
         );
 
-        let appointmentList = [...mockAppointments];
-
-        const storedAppointments =
-          localStorage.getItem("appointments");
-
-        if (storedAppointments) {
-          const parsedAppointments = JSON.parse(
-            storedAppointments
-          ) as unknown;
-
-          if (Array.isArray(parsedAppointments)) {
-            const mergedAppointments = new Map(
-              mockAppointments.map((appointment) => [
-                appointment.id,
-                appointment,
-              ])
-            );
-
-            parsedAppointments.forEach((item) => {
-              if (
-                typeof item !== "object" ||
-                item === null
-              ) {
-                return;
-              }
-
-              const appointment =
-                item as Partial<Appointment>;
-
-              if (
-                typeof appointment.id !== "string" ||
-                typeof appointment.startsAt !== "string" ||
-                typeof appointment.clinician !== "string" ||
-                typeof appointment.status !== "string" ||
-                !appointment.patient ||
-                typeof appointment.patient !== "object"
-              ) {
-                return;
-              }
-
-              mergedAppointments.set(
-                appointment.id,
-                appointment as Appointment
-              );
-            });
-
-            appointmentList = Array.from(
-              mergedAppointments.values()
-            );
-          }
-        }
+        const appointmentList = getAdminAppointments();
 
         setAllPatients(normalizedPatients);
         setAppointments(appointmentList);

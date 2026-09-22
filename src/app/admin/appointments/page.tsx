@@ -2,10 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { appointments as mockAppointments } from "@/lib/mock-data/appointments";
+import { getAdminAppointments } from "@/lib/utils/admin-appointments";
 import type {
   Appointment,
-  AppointmentStatus,
   ConsultationType,
 } from "@/types/appointment";
 
@@ -96,19 +95,6 @@ const formatStatusFilterValue = (status: AppointmentDisplayStatus) => {
   return status.toLowerCase();
 };
 
-const isAppointmentStatus = (
-  value: string
-): value is AppointmentStatus => {
-  return [
-    "pending",
-    "confirmed",
-    "upcoming",
-    "completed",
-    "cancelled",
-    "missed",
-  ].includes(value);
-};
-
 export default function AdminAppointmentsPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -129,50 +115,8 @@ export default function AdminAppointmentsPage() {
   useEffect(() => {
     const loadAppointments = () => {
       try {
-        const storedAppointments =
-          localStorage.getItem("appointments");
-
-        if (!storedAppointments) {
-          setAppointments(mockAppointments);
-          setLoading(false);
-          return;
-        }
-
-        const parsedAppointments = JSON.parse(
-          storedAppointments
-        ) as unknown;
-
-        if (!Array.isArray(parsedAppointments)) {
-          throw new Error("Invalid appointments data");
-        }
-
-        const validAppointments = parsedAppointments.filter(
-          (appointment): appointment is Appointment => {
-            if (
-              typeof appointment !== "object" ||
-              appointment === null
-            ) {
-              return false;
-            }
-
-            const candidate =
-              appointment as Partial<Appointment>;
-
-            return (
-              typeof candidate.id === "string" &&
-              typeof candidate.clinician === "string" &&
-              typeof candidate.startsAt === "string" &&
-              typeof candidate.status === "string" &&
-              isAppointmentStatus(candidate.status)
-            );
-          }
-        );
-
-        setAppointments(
-          validAppointments.length > 0
-            ? validAppointments
-            : mockAppointments
-        );
+        setAppointments(getAdminAppointments());
+        setError("");
         setLoading(false);
       } catch {
         setAppointments([]);

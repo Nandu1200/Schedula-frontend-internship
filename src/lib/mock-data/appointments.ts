@@ -51,6 +51,10 @@ export const appointments: Appointment[] = [
     consultationType: "in-person",
     reason: "Routine health check-up",
     room: "Clinic Room 102",
+    review: {
+      rating: 5,
+      comment: "Dr. Anika Rao explained everything clearly and made the consultation very comfortable.",
+    },
   },
   {
     id: "appointment-004",
@@ -120,12 +124,16 @@ export const appointments: Appointment[] = [
     clinician: "Dr. Aman",
     specialty: "Cardiology",
     startsAt: "2026-09-18T10:30:00+05:30",
-    durationMinutes: 30,
     actualEndAt: "2026-09-18T11:05:00+05:30",
+    durationMinutes: 30,
     status: "completed",
     consultationType: "online",
     reason: "Detailed cardiac consultation",
     room: "Online Consultation",
+    review: {
+      rating: 4,
+      comment: "Dr. Aman gave a detailed explanation and answered all of my questions patiently.",
+    },
   },
   {
     id: "appointment-008",
@@ -143,5 +151,9 @@ export const appointments: Appointment[] = [
     consultationType: "in-person",
     reason: "Dermatology review",
     room: "Clinic Room 204",
+    review: {
+      rating: 4,
+      comment: "Dr. Narendra listened carefully and gave clear guidance for my skin treatment.",
+    },
   },
 ];
