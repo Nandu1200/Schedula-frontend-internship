@@ -2,8 +2,9 @@
 
 import { useSyncExternalStore } from "react";
 import { doctors } from "@/lib/mock-data/doctors";
-import { patients } from "@/lib/mock-data/patients";
 import { adminDoctors } from "@/lib/mock-data/admin/doctors";
+import type { AdminDoctorStatus } from "@/types/admin";
+import { patients } from "@/lib/mock-data/patients";
 import type { Appointment } from "@/types/appointment";
 
 let appointmentsSnapshot: Appointment[] = [];
@@ -135,6 +136,103 @@ const subscribeToRegisteredUsers = (
   };
 };
 
+let pendingVerificationSnapshot = 0;
+
+const getDoctorVerificationStatus = (
+  doctorId: string
+): AdminDoctorStatus => {
+  const storedStatus = localStorage.getItem(
+    `doctorVerificationStatus-${doctorId}`
+  );
+
+  if (
+    storedStatus === "pending" ||
+    storedStatus === "approved" ||
+    storedStatus === "rejected"
+  ) {
+    return storedStatus;
+  }
+
+  const adminDoctor = adminDoctors.find(
+    (doctor) => doctor.doctorId === doctorId
+  );
+
+  return adminDoctor?.verificationStatus ?? "pending";
+};
+
+const readPendingVerificationCount = () => {
+  const doctorList = [...doctors];
+
+  try {
+    const storedDoctor =
+      localStorage.getItem("registeredDoctor");
+
+    if (storedDoctor) {
+      const registeredDoctor = JSON.parse(
+        storedDoctor
+      ) as (typeof doctors)[number];
+
+      const alreadyExists = doctorList.some(
+        (doctor) => doctor.id === registeredDoctor.id
+      );
+
+      if (!alreadyExists) {
+        doctorList.push(registeredDoctor);
+      }
+    }
+  } catch {
+    // Keep the mock doctor list when stored data is invalid.
+  }
+
+  pendingVerificationSnapshot = doctorList.filter(
+    (doctor) =>
+      getDoctorVerificationStatus(doctor.id) ===
+      "pending"
+  ).length;
+};
+
+const subscribeToVerificationStatus = (
+  callback: () => void
+) => {
+  const handleVerificationUpdate = () => {
+    readPendingVerificationCount();
+    callback();
+  };
+
+  window.addEventListener(
+    "storage",
+    handleVerificationUpdate
+  );
+
+  window.addEventListener(
+    "doctor-verification-changed",
+    handleVerificationUpdate
+  );
+
+  readPendingVerificationCount();
+  callback();
+
+  return () => {
+    window.removeEventListener(
+      "storage",
+      handleVerificationUpdate
+    );
+
+    window.removeEventListener(
+      "doctor-verification-changed",
+      handleVerificationUpdate
+    );
+  };
+};
+
+const getPendingVerificationSnapshot = () => {
+  return pendingVerificationSnapshot;
+};
+
+const getServerPendingVerificationSnapshot = () => {
+  return 0;
+};
+
 const getAppointmentsSnapshot = (): Appointment[] => {
   return appointmentsSnapshot;
 };
@@ -172,21 +270,6 @@ const getCompletedAppointments = (
   ).length;
 };
 
-const getPendingVerifications = (
-  registeredDoctors: typeof doctors
-): number => {
-  return registeredDoctors.filter((doctor) => {
-    const adminDoctor = adminDoctors.find(
-      (item) => item.doctorId === doctor.id
-    );
-
-    return (
-      !adminDoctor ||
-      adminDoctor.verificationStatus === "pending"
-    );
-  }).length;
-};
-
 export default function AdminDashboardPage() {
   const appointments = useSyncExternalStore(
     subscribeToAppointments,
@@ -206,14 +289,17 @@ export default function AdminDashboardPage() {
     () => patients
   );
 
+  const pendingVerifications = useSyncExternalStore(
+    subscribeToVerificationStatus,
+    getPendingVerificationSnapshot,
+    getServerPendingVerificationSnapshot
+  );
+
   const upcomingAppointments =
     getUpcomingAppointments(appointments);
 
   const completedAppointments =
     getCompletedAppointments(appointments);
-
-  const pendingVerifications =
-    getPendingVerifications(registeredDoctors);
 
   const stats = [
     {

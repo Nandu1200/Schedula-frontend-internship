@@ -10,15 +10,23 @@ import type { AdminDoctorStatus } from "@/types/admin";
 const getVerificationStatus = (
   doctorId: string
 ): AdminDoctorStatus => {
+  const storedStatus = localStorage.getItem(
+    `doctorVerificationStatus-${doctorId}`
+  );
+
+  if (
+    storedStatus === "pending" ||
+    storedStatus === "approved" ||
+    storedStatus === "rejected"
+  ) {
+    return storedStatus;
+  }
+
   const adminDoctor = adminDoctors.find(
     (doctor) => doctor.doctorId === doctorId
   );
 
-  if (adminDoctor) {
-    return adminDoctor.verificationStatus;
-  }
-
-  return "pending";
+  return adminDoctor?.verificationStatus ?? "pending";
 };
 
 export default function AdminDoctorsPage() {
@@ -44,41 +52,74 @@ export default function AdminDoctorsPage() {
   const [doctorToActivate, setDoctorToActivate] =
     useState<Doctor | null>(null);
 
+  const [verificationRefreshKey, setVerificationRefreshKey] =
+    useState(0);
+
   const doctorsPerPage = 5;
 
   useEffect(() => {
-    const loadRegisteredDoctor = () => {
-      try {
-        const storedDoctor =
-          localStorage.getItem("registeredDoctor");
+    const loadFrameId =
+      window.requestAnimationFrame(() => {
+        try {
+          const storedDoctor =
+            localStorage.getItem("registeredDoctor");
 
-        if (!storedDoctor) {
+          if (!storedDoctor) {
+            setAllDoctors(doctors);
+            return;
+          }
+
+          const registeredDoctor = JSON.parse(
+            storedDoctor
+          ) as Doctor;
+
+          const doctorExists = doctors.some(
+            (doctor) =>
+              doctor.id === registeredDoctor.id
+          );
+
+          if (doctorExists) {
+            setAllDoctors(doctors);
+          } else {
+            setAllDoctors([
+              ...doctors,
+              registeredDoctor,
+            ]);
+          }
+        } catch {
           setAllDoctors(doctors);
-          return;
         }
+      });
 
-        const registeredDoctor = JSON.parse(
-          storedDoctor
-        ) as Doctor;
-
-        const doctorExists = doctors.some(
-          (doctor) => doctor.id === registeredDoctor.id
-        );
-
-        if (doctorExists) {
-          setAllDoctors(doctors);
-        } else {
-          setAllDoctors([
-            ...doctors,
-            registeredDoctor,
-          ]);
-        }
-      } catch {
-        setAllDoctors(doctors);
-      }
+    const handleVerificationChange = () => {
+      setVerificationRefreshKey(
+        (currentKey) => currentKey + 1
+      );
     };
 
-    loadRegisteredDoctor();
+    window.addEventListener(
+      "doctor-verification-changed",
+      handleVerificationChange
+    );
+
+    window.addEventListener(
+      "storage",
+      handleVerificationChange
+    );
+
+    return () => {
+      window.cancelAnimationFrame(loadFrameId);
+
+      window.removeEventListener(
+        "doctor-verification-changed",
+        handleVerificationChange
+      );
+
+      window.removeEventListener(
+        "storage",
+        handleVerificationChange
+      );
+    };
   }, []);
 
   const handleViewDoctor = (doctor: Doctor) => {
@@ -261,6 +302,7 @@ export default function AdminDoctorsPage() {
     searchTerm,
     specialtyFilter,
     verificationFilter,
+    verificationRefreshKey,
   ]);
 
   const totalPages = Math.ceil(

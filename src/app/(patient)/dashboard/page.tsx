@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import SchedulaAICareAssistant from "@/components/ai/SchedulaAICareAssistant";
+import { useTheme } from "@/components/theme/ThemeProvider";
 import {
   useEffect,
   useMemo,
@@ -270,6 +271,8 @@ export default function PatientDashboardPage() {
 
   const [notificationOpen, setNotificationOpen] =
     useState(false);
+
+  const { isDark, toggleTheme } = useTheme();
 
   /* -------------------- Patient Notifications -------------------- */
 
@@ -546,7 +549,7 @@ export default function PatientDashboardPage() {
   /* -------------------- Dashboard UI -------------------- */
 
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-900">
+    <main className={`min-h-screen text-slate-900 ${isDark ? "schedula-dashboard-dark bg-slate-950 text-slate-100" : "bg-slate-50"}`}>
       <div className="flex min-h-screen">
         {/* Sidebar */}
         <aside className="hidden w-[294px] shrink-0 bg-emerald-700 text-white lg:flex lg:flex-col">
@@ -601,6 +604,22 @@ export default function PatientDashboardPage() {
               </Link>
 
               <Link
+                href="/medical-store"
+                className="flex items-center gap-4 rounded-2xl px-5 py-4 text-sm font-bold transition-all duration-200 hover:bg-emerald-600/70"
+              >
+                <span className="text-lg">💊</span>
+                Medical Store
+              </Link>
+
+              <Link
+                href="/medical-store/orders"
+                className="flex items-center gap-4 rounded-2xl px-5 py-4 text-sm font-bold transition-all duration-200 hover:bg-emerald-600/70"
+              >
+                <span className="text-lg">📦</span>
+                My Orders
+              </Link>
+
+              <Link
                 href="/profile"
                 className="flex items-center gap-4 rounded-2xl px-5 py-4 text-sm font-bold transition-all duration-200 hover:bg-emerald-600/70"
               >
@@ -625,6 +644,29 @@ export default function PatientDashboardPage() {
             </div>
 
             <div className="flex items-center gap-3 sm:gap-5">
+              {/* Theme Toggle */}
+              <button
+                type="button"
+                onClick={toggleTheme}
+                aria-label={
+                  isDark
+                    ? "Switch to light mode"
+                    : "Switch to dark mode"
+                }
+                title={
+                  isDark
+                    ? "Switch to light mode"
+                    : "Switch to dark mode"
+                }
+                className={`grid size-12 place-items-center rounded-xl border text-xl shadow-sm transition-all duration-200 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 ${
+                  isDark
+                    ? "border-slate-700 bg-slate-900 text-amber-300 hover:border-emerald-500 hover:bg-slate-800"
+                    : "border-slate-200 bg-white text-slate-700 hover:border-emerald-200 hover:bg-emerald-50"
+                }`}
+              >
+                {isDark ? "☀️" : "🌙"}
+              </button>
+
               {/* Notification Bell */}
               <div className="relative">
                 <button
@@ -820,6 +862,28 @@ export default function PatientDashboardPage() {
                   </Link>
 
                   <Link
+                    href="/medical-store"
+                    className="group flex items-center justify-between rounded-2xl border border-emerald-100 bg-emerald-50 p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-emerald-200 hover:bg-emerald-100 hover:shadow-md"
+                  >
+                    <div>
+                      <h3 className="font-bold text-slate-900">Medical Store</h3>
+                      <p className="mt-1 text-sm text-slate-500">Browse medicines and healthcare products.</p>
+                    </div>
+                    <span className="text-2xl text-emerald-600 transition-transform duration-200 group-hover:translate-x-1">💊</span>
+                  </Link>
+
+                  <Link
+                    href="/medical-store/orders"
+                    className="group flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-emerald-200 hover:shadow-md"
+                  >
+                    <div>
+                      <h3 className="font-bold text-slate-900">My Orders</h3>
+                      <p className="mt-1 text-sm text-slate-500">Track your medicine and healthcare product orders.</p>
+                    </div>
+                    <span className="text-2xl text-emerald-600 transition-transform duration-200 group-hover:translate-x-1">📦</span>
+                  </Link>
+
+                  <Link
                     href="/profile"
                     className="group flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-emerald-200 hover:shadow-md"
                   >
@@ -955,6 +1019,97 @@ export default function PatientDashboardPage() {
           </div>
         </div>
       </div>
+
+
+          <style jsx global>{`
+            .schedula-dashboard-dark .bg-white {
+              background-color: #0f172a !important;
+            }
+
+            .schedula-dashboard-dark .bg-slate-50 {
+              background-color: #111827 !important;
+            }
+
+            .schedula-dashboard-dark .border-slate-200,
+            .schedula-dashboard-dark .border-slate-100 {
+              border-color: #334155 !important;
+            }
+
+            .schedula-dashboard-dark .border-emerald-100 {
+              border-color: #14532d !important;
+            }
+
+            .schedula-dashboard-dark .text-slate-950,
+            .schedula-dashboard-dark .text-slate-900 {
+              color: #f8fafc !important;
+            }
+
+            .schedula-dashboard-dark .text-slate-800 {
+              color: #e2e8f0 !important;
+            }
+
+            .schedula-dashboard-dark .text-slate-700 {
+              color: #cbd5e1 !important;
+            }
+
+            .schedula-dashboard-dark .text-slate-600 {
+              color: #cbd5e1 !important;
+            }
+
+            .schedula-dashboard-dark .text-slate-500 {
+              color: #94a3b8 !important;
+            }
+
+            .schedula-dashboard-dark .text-slate-400 {
+              color: #94a3b8 !important;
+            }
+
+            .schedula-dashboard-dark .bg-emerald-50 {
+              background-color: #052e25 !important;
+            }
+
+            .schedula-dashboard-dark .bg-emerald-100 {
+              background-color: #064e3b !important;
+            }
+
+            .schedula-dashboard-dark .text-emerald-900 {
+              color: #d1fae5 !important;
+            }
+
+            .schedula-dashboard-dark .text-emerald-800 {
+              color: #a7f3d0 !important;
+            }
+
+            .schedula-dashboard-dark .text-emerald-700 {
+              color: #6ee7b7 !important;
+            }
+
+            .schedula-dashboard-dark .text-emerald-600 {
+              color: #34d399 !important;
+            }
+
+            .schedula-dashboard-dark .hover\\:bg-slate-50:hover {
+              background-color: #1e293b !important;
+            }
+
+            .schedula-dashboard-dark .hover\\:bg-emerald-50:hover {
+              background-color: #064e3b !important;
+            }
+
+            .schedula-dashboard-dark .hover\\:bg-emerald-100:hover {
+              background-color: #065f46 !important;
+            }
+
+            .schedula-dashboard-dark .ring-emerald-50 {
+              --tw-ring-color: #064e3b !important;
+            }
+
+            .schedula-dashboard-dark .shadow-sm,
+            .schedula-dashboard-dark .shadow-md,
+            .schedula-dashboard-dark .shadow-2xl {
+              --tw-shadow-color: rgb(0 0 0 / 0.35) !important;
+            }
+          `}</style>
     </main>
   );
 }

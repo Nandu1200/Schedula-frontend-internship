@@ -286,7 +286,12 @@ export default function AdminAppointmentsPage() {
           return true;
         }
 
-        return appointment.consultationType === typeFilter;
+        // Existing appointments without an explicit consultation type
+        // are treated as in-person by default.
+        const consultationType =
+          appointment.consultationType ?? "in-person";
+
+        return consultationType === typeFilter;
       })
       .sort(
         (first, second) =>

@@ -162,7 +162,7 @@ export default function DoctorVerificationPage() {
     useState("");
 
   const [confirmationAction, setConfirmationAction] =
-    useState<"approve" | "reject" | null>(null);
+    useState<"approve" | "reject" | "pending" | null>(null);
 
   const [viewingDocument, setViewingDocument] =
     useState<string | null>(null);
@@ -401,6 +401,45 @@ export default function DoctorVerificationPage() {
       ...currentReasons,
       [doctorId]: trimmedReason,
     }));
+
+    setRejectionReason("");
+    setRejectionError("");
+    setConfirmationAction(null);
+    setSelectedDoctor(null);
+  };
+
+  /* ------------------------------------------------------------------------ */
+  /* Move Verification Back to Pending                                        */
+  /* ------------------------------------------------------------------------ */
+
+  const handleMoveToPending = () => {
+    setConfirmationAction("pending");
+  };
+
+  const confirmMoveToPending = (doctorId: string) => {
+    localStorage.setItem(
+      `doctorVerificationStatus-${doctorId}`,
+      "pending"
+    );
+
+    localStorage.removeItem(
+      `doctorVerificationRejectionReason-${doctorId}`
+    );
+
+    setVerificationOverrides((currentStatuses) => ({
+      ...currentStatuses,
+      [doctorId]: "pending",
+    }));
+
+    setRejectionReasons((currentReasons) => {
+      const nextReasons = { ...currentReasons };
+      delete nextReasons[doctorId];
+      return nextReasons;
+    });
+
+    window.dispatchEvent(
+      new Event("doctor-verification-changed")
+    );
 
     setRejectionReason("");
     setRejectionError("");
@@ -737,13 +776,17 @@ export default function DoctorVerificationPage() {
             <h2 className="text-lg font-bold text-slate-900">
               {confirmationAction === "approve"
                 ? "Confirm Approval"
-                : "Confirm Rejection"}
+                : confirmationAction === "reject"
+                ? "Confirm Rejection"
+                : "Move Back to Pending"}
             </h2>
 
             <p className="mt-2 text-sm leading-6 text-slate-600">
               {confirmationAction === "approve"
                 ? `Are you sure you want to approve ${selectedDoctor.name} for verification?`
-                : `Are you sure you want to reject ${selectedDoctor.name}'s verification?`}
+                : confirmationAction === "reject"
+                ? `Are you sure you want to reject ${selectedDoctor.name}'s verification?`
+                : `Are you sure you want to move ${selectedDoctor.name}'s verification back to pending?`}
             </p>
 
             {confirmationAction === "reject" && (
@@ -771,19 +814,25 @@ export default function DoctorVerificationPage() {
                 onClick={() => {
                   if (confirmationAction === "approve") {
                     confirmApproveDoctor(selectedDoctor.id);
-                  } else {
+                  } else if (confirmationAction === "reject") {
                     confirmRejectDoctor(selectedDoctor.id);
+                  } else {
+                    confirmMoveToPending(selectedDoctor.id);
                   }
                 }}
                 className={`rounded-lg px-4 py-2 text-sm font-semibold text-white transition ${
                   confirmationAction === "approve"
                     ? "bg-emerald-600 hover:bg-emerald-700"
-                    : "bg-red-600 hover:bg-red-700"
+                    : confirmationAction === "reject"
+                    ? "bg-red-600 hover:bg-red-700"
+                    : "bg-amber-600 hover:bg-amber-700"
                 }`}
               >
                 {confirmationAction === "approve"
                   ? "Confirm Approval"
-                  : "Confirm Rejection"}
+                  : confirmationAction === "reject"
+                  ? "Confirm Rejection"
+                  : "Move to Pending"}
               </button>
             </div>
           </div>
@@ -1180,6 +1229,19 @@ export default function DoctorVerificationPage() {
                       Reject Verification
                     </button>
                   </>
+                )}
+
+                {getVerificationStatus(
+                  selectedDoctor.id,
+                  verificationOverrides
+                ) !== "pending" && (
+                  <button
+                    type="button"
+                    onClick={handleMoveToPending}
+                    className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-700 transition hover:bg-amber-100"
+                  >
+                    Move Back to Pending
+                  </button>
                 )}
               </div>
 
