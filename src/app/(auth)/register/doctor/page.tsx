@@ -152,6 +152,7 @@ export default function DoctorRegisterPage() {
 
     const doctor = {
       id: `doctor-${Date.now()}`,
+      registeredAt: new Date().toISOString(),
       name: formData.name.trim(),
       email: formData.email.trim(),
       phone: formData.phone.trim(),
@@ -166,6 +167,9 @@ export default function DoctorRegisterPage() {
 
       onlineFee: Number(formData.onlineFee),
       inPersonFee: Number(formData.inPersonFee),
+
+      // Store the actual registration date for Admin analytics.
+      registeredAt: new Date().toISOString(),
 
       bio: "",
     };

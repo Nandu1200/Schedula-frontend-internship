@@ -20,6 +20,9 @@ export type AppointmentPayment = {
   method: PaymentMethod;
   transactionId: string;
   paidAt?: string;
+  refundedAt?: string;
+  refundAmount?: number;
+  refundReason?: string;
 };
 
 export type Appointment = {

@@ -14,8 +14,8 @@ import type {
   Payment,
   PaymentStatus,
 } from "@/types/payment";
-import { getAdminAppointments } from "@/lib/utils/admin-appointments";
 import type { Doctor } from "@/types/doctor";
+import { getAdminAppointments } from "@/lib/utils/admin-appointments";
 
 const getPaymentStatusLabel = (
   status: PaymentStatus
@@ -148,10 +148,7 @@ export default function AdminPaymentsPage() {
   const [statusFilter, setStatusFilter] =
     useState<"all" | PaymentStatus>("all");
 
-  const [fromDate, setFromDate] =
-    useState("");
-
-  const [toDate, setToDate] =
+  const [dateFilter, setDateFilter] =
     useState("");
 
   const [doctorOptions, setDoctorOptions] =
@@ -171,8 +168,8 @@ export default function AdminPaymentsPage() {
     const loadPaymentData = () => {
       try {
         const paymentDoctors: Array<
-          Pick<Doctor, "id" | "name" | "consultationFee">
-        > = [...mockDoctors];
+  Pick<Doctor, "id" | "name" | "consultationFee">
+> = [...mockDoctors];
 
         const addStoredDoctor = (storageKey: string) => {
           const storedDoctor =
@@ -339,35 +336,21 @@ export default function AdminPaymentsPage() {
         payment.createdAt
       );
 
-      const paymentDateOnly = new Date(
+      const paymentDateKey = [
         paymentDate.getFullYear(),
-        paymentDate.getMonth(),
-        paymentDate.getDate()
-      );
+        String(paymentDate.getMonth() + 1).padStart(2, "0"),
+        String(paymentDate.getDate()).padStart(2, "0"),
+      ].join("-");
 
-      const selectedFromDate = fromDate
-        ? new Date(`${fromDate}T00:00:00`)
-        : null;
-
-      const selectedToDate = toDate
-        ? new Date(`${toDate}T23:59:59.999`)
-        : null;
-
-      const matchesFromDate =
-        !selectedFromDate ||
-        paymentDateOnly >= selectedFromDate;
-
-      const matchesToDate =
-        !selectedToDate ||
-        paymentDateOnly <= selectedToDate;
+      const matchesDate =
+        !dateFilter || paymentDateKey === dateFilter;
 
       return (
         matchesSearch &&
         matchesDoctor &&
         matchesPatient &&
         matchesStatus &&
-        matchesFromDate &&
-        matchesToDate
+        matchesDate
       );
     });
   }, [
@@ -376,8 +359,7 @@ export default function AdminPaymentsPage() {
     doctorFilter,
     patientFilter,
     statusFilter,
-    fromDate,
-    toDate,
+    dateFilter,
   ]);
 
   const totalPages = Math.ceil(
@@ -409,8 +391,7 @@ export default function AdminPaymentsPage() {
     doctorFilter,
     patientFilter,
     statusFilter,
-    fromDate,
-    toDate,
+    dateFilter,
   ]);
 
   useEffect(() => {
@@ -449,16 +430,14 @@ export default function AdminPaymentsPage() {
     doctorFilter !== "all" ||
     patientFilter !== "all" ||
     statusFilter !== "all" ||
-    fromDate !== "" ||
-    toDate !== "";
+    dateFilter !== "";
 
   const handleClearFilters = () => {
     setSearchTerm("");
     setDoctorFilter("all");
     setPatientFilter("all");
     setStatusFilter("all");
-    setFromDate("");
-    setToDate("");
+    setDateFilter("");
     setCurrentPage(1);
   };
 
@@ -718,38 +697,18 @@ export default function AdminPaymentsPage() {
 
           <div>
             <label
-              htmlFor="payment-from-date"
+              htmlFor="payment-date-filter"
               className="mb-2 block text-sm font-semibold text-slate-700"
             >
-              From Date
+              Date
             </label>
 
             <input
-              id="payment-from-date"
+              id="payment-date-filter"
               type="date"
-              value={fromDate}
+              value={dateFilter}
               onChange={(event) =>
-                setFromDate(event.target.value)
-              }
-              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="payment-to-date"
-              className="mb-2 block text-sm font-semibold text-slate-700"
-            >
-              To Date
-            </label>
-
-            <input
-              id="payment-to-date"
-              type="date"
-              value={toDate}
-              min={fromDate || undefined}
-              onChange={(event) =>
-                setToDate(event.target.value)
+                setDateFilter(event.target.value)
               }
               className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
             />

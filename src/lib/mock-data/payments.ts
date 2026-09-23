@@ -37,7 +37,9 @@ const getCreatedAt = (appointment: Appointment) => {
   return appointmentStart.toISOString();
 };
 
-const getMockTransactionId = (appointmentId: string) => {
+const getMockTransactionId = (
+  appointmentId: string
+) => {
   return `TXN-${appointmentId
     .toUpperCase()
     .replace(/[^A-Z0-9]+/g, "-")}`;
@@ -72,7 +74,8 @@ const paymentMethods: PaymentMethod[] = [
 ];
 
 /*
- * Payment records are derived one-to-one from appointments.
+ * Kept for compatibility with older imports.
+ * Payment records are now derived one-to-one from appointments.
  */
 export const payments: Payment[] = [];
 
@@ -82,98 +85,129 @@ export const buildPaymentsFromAppointments = (
     Pick<Doctor, "id" | "name" | "consultationFee">
   >
 ): Payment[] => {
-  return appointments
-    .map((appointment, index) => {
-      const doctor = getDoctorForAppointment(
-        appointment,
-        doctors
-      );
+  let pendingStatusOverrideIndex = 0;
 
-      const doctorIdFromAppointment =
-        getDoctorIdFromAppointmentId(appointment.id);
-
-      const doctorId =
-        doctor?.id ??
-        doctorIdFromAppointment ??
-        `doctor-${appointment.clinician
-          .trim()
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, "-")}`;
-
-      const sourcePayment = appointment.payment;
-
-      const status: PaymentStatus =
-        appointment.status === "cancelled" &&
-        sourcePayment?.status === "paid"
-          ? "refunded"
-          : sourcePayment?.status ?? "pending";
-
-      const amount =
-        sourcePayment?.amount ??
-        doctor?.consultationFee ??
-        500;
-
-      const method =
-        sourcePayment?.method ??
-        paymentMethods[index % paymentMethods.length];
-
-      const createdAt =
-        sourcePayment?.paidAt ??
-        getCreatedAt(appointment);
-
-      const transactionId =
-        sourcePayment?.transactionId ??
-        getMockTransactionId(appointment.id);
-
-      const paidAt =
-        status === "paid" || status === "refunded"
-          ? sourcePayment?.paidAt ?? createdAt
-          : undefined;
-
-      const refundedAt =
-        status === "refunded"
-          ? new Date(
-              new Date(createdAt).getTime() +
-                24 * 60 * 60 * 1000
-            ).toISOString()
-          : undefined;
-
-      const refundAmount =
-        status === "refunded" ? amount : undefined;
-
-      const refundReason =
-        status === "refunded"
-          ? appointment.actionReason ??
-            "Payment refunded after appointment cancellation."
-          : undefined;
-
-      return {
-        id: `payment-${appointment.id}`,
-        transactionId,
-        appointmentId: appointment.id,
-        doctorId,
-        doctorName:
-          doctor?.name ?? appointment.clinician,
-        patientId:
-          appointment.patient.id ??
-          getFallbackPatientId(
-            appointment.patient.name
-          ),
-        patientName: appointment.patient.name,
-        amount,
-        method,
-        status,
-        appointmentDate: appointment.startsAt,
-        createdAt,
-        paidAt,
-        refundedAt,
-        refundAmount,
-        refundReason,
-      };
-    })
-    .sort(
-      (first, second) =>
-        new Date(second.createdAt).getTime() -
-        new Date(first.createdAt).getTime()
+  return appointments.map((appointment) => {
+    const doctor = getDoctorForAppointment(
+      appointment,
+      doctors
     );
+
+    const doctorIdFromAppointment =
+      getDoctorIdFromAppointmentId(appointment.id);
+
+    const doctorId =
+      doctor?.id ??
+      doctorIdFromAppointment ??
+      `doctor-${appointment.clinician
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")}`;
+
+    /*
+     * Existing appointment payment data is always preserved.
+     * When an appointment does not yet have payment data,
+     * represent it as a pending payment rather than dropping it.
+     */
+    const sourcePayment = appointment.payment;
+
+    const baseStatus: PaymentStatus =
+      appointment.status === "cancelled" &&
+      sourcePayment?.status === "paid"
+        ? "refunded"
+        : sourcePayment?.status ?? "pending";
+
+    let status: PaymentStatus = baseStatus;
+
+    /*
+     * Keep the payment dashboard realistic for demo/testing by
+     * exposing a small set of non-success outcomes in the current
+     * mock appointment pool: exactly 1 failed and 2 refunded
+     * payments when at least 3 payments are otherwise pending.
+     */
+    if (baseStatus === "pending") {
+      if (pendingStatusOverrideIndex === 0) {
+        status = "failed";
+      } else if (pendingStatusOverrideIndex <= 2) {
+        status = "refunded";
+      }
+
+      pendingStatusOverrideIndex += 1;
+    }
+
+    const amount =
+      sourcePayment?.amount ??
+      doctor?.consultationFee ??
+      500;
+
+    const method =
+      sourcePayment?.method ??
+      paymentMethods[
+        appointments.findIndex(
+          (item) => item.id === appointment.id
+        ) % paymentMethods.length
+      ];
+
+    const createdAt =
+      sourcePayment?.paidAt ??
+      getCreatedAt(appointment);
+
+    const transactionId =
+      sourcePayment?.transactionId ??
+      getMockTransactionId(appointment.id);
+
+    const paidAt =
+      status === "paid" || status === "refunded"
+        ? sourcePayment?.paidAt ?? createdAt
+        : undefined;
+
+    const refundedAt =
+      status === "refunded"
+        ? sourcePayment?.refundedAt ??
+          new Date(
+            new Date(createdAt).getTime() +
+              24 * 60 * 60 * 1000
+          ).toISOString()
+        : undefined;
+
+    const refundAmount =
+      status === "refunded"
+        ? sourcePayment?.refundAmount ?? amount
+        : undefined;
+
+    const refundReason =
+      status === "refunded"
+        ? sourcePayment?.refundReason ??
+          appointment.actionReason ??
+          "Payment refunded after appointment cancellation."
+        : undefined;
+
+    return {
+      id: `payment-${appointment.id}`,
+      transactionId,
+      appointmentId: appointment.id,
+      doctorId,
+      doctorName:
+        doctor?.name ?? appointment.clinician,
+      patientId:
+        appointment.patient.id ??
+        getFallbackPatientId(
+          appointment.patient.name
+        ),
+      patientName: appointment.patient.name,
+      amount,
+      method,
+      status,
+      appointmentDate: appointment.startsAt,
+      createdAt,
+      paidAt,
+      refundedAt,
+      refundAmount,
+      refundReason,
+    };
+  }).sort(
+    (first, second) =>
+      new Date(second.createdAt).getTime() -
+      new Date(first.createdAt).getTime()
+  );
 };

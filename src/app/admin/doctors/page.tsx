@@ -6,6 +6,7 @@ import { adminDoctors } from "@/lib/mock-data/admin/doctors";
 import StatusBadge from "@/components/admin/StatusBadge";
 import type { Doctor } from "@/types/doctor";
 import type { AdminDoctorStatus } from "@/types/admin";
+import { addAuditLog } from "@/lib/utils/audit-logs";
 
 const getVerificationStatus = (
   doctorId: string
@@ -192,6 +193,14 @@ export default function AdminDoctorsPage() {
       }
     }
 
+    addAuditLog({
+      actorName: "Admin",
+      actorRole: "admin",
+      action: "doctor-activated",
+      affectedEntity: doctorToActivate.name,
+      entityType: "doctor",
+    });
+
     setDoctorToActivate(null);
   };
 
@@ -256,6 +265,14 @@ export default function AdminDoctorsPage() {
         // Ignore invalid localStorage data.
       }
     }
+
+    addAuditLog({
+      actorName: "Admin",
+      actorRole: "admin",
+      action: "doctor-deactivated",
+      affectedEntity: doctorToDeactivate.name,
+      entityType: "doctor",
+    });
 
     setDoctorToDeactivate(null);
   };
