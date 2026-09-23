@@ -1,6 +1,335 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-:root { --canvas: #f7f8f6; --ink: #1b2925; --muted: #66736e; --line: #dce2de; --brand: #0e6b56; --brand-deep: #08483a; }
-* { box-sizing: border-box; } html { background: var(--canvas); } body { background: var(--canvas); color: var(--ink); font-family: Arial, Helvetica, sans-serif; } button, a { -webkit-tap-highlight-color: transparent; } button { cursor: pointer; } button:focus-visible, a:focus-visible { outline: 3px solid #8fd6c2; outline-offset: 3px; }
-@media (prefers-reduced-motion: no-preference) { button, a { transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1), background-color 160ms ease, color 160ms ease, border-color 160ms ease; } button:active { transform: scale(0.97); } }
+
+:root {
+  --canvas: #f7f8f6;
+  --surface: #ffffff;
+  --surface-soft: #f2f6f4;
+
+  --ink: #1b2925;
+  --muted: #66736e;
+
+  --line: #dce2de;
+  --line-soft: #e8eeeb;
+
+  --brand: #0e6b56;
+  --brand-deep: #08483a;
+  --brand-soft: #e7f4ef;
+  --brand-hover: #0b5c4a;
+
+  --success: #16794f;
+  --warning: #a66a00;
+  --danger: #b42318;
+  --info: #2563eb;
+
+  --shadow-sm: 0 1px 2px rgba(27, 41, 37, 0.05);
+  --shadow-md: 0 8px 24px rgba(27, 41, 37, 0.08);
+  --shadow-lg: 0 16px 40px rgba(27, 41, 37, 0.1);
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--canvas);
+  scroll-behavior: smooth;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: var(--brand-soft);
+  color: var(--brand-deep);
+}
+
+button,
+a,
+input,
+textarea,
+select {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 3px solid #8fd6c2;
+  outline-offset: 3px;
+}
+
+img {
+  max-width: 100%;
+}
+
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* --------------------------------------------------
+   Reusable Schedula utilities
+-------------------------------------------------- */
+
+@layer components {
+  .schedula-card {
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    background: var(--surface);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .schedula-card-hover {
+    transition:
+      transform 180ms cubic-bezier(0.23, 1, 0.32, 1),
+      box-shadow 180ms ease,
+      border-color 180ms ease;
+  }
+
+  .schedula-card-hover:hover {
+    transform: translateY(-2px);
+    border-color: #cbd6d1;
+    box-shadow: var(--shadow-md);
+  }
+
+  .schedula-muted {
+    color: var(--muted);
+  }
+
+  .schedula-brand-text {
+    color: var(--brand);
+  }
+
+  .schedula-surface {
+    background: var(--surface);
+  }
+
+  .schedula-soft-surface {
+    background: var(--surface-soft);
+  }
+}
+
+/* --------------------------------------------------
+   Smooth interactions
+-------------------------------------------------- */
+
+@media (prefers-reduced-motion: no-preference) {
+  button,
+  a {
+    transition:
+      transform 160ms cubic-bezier(0.23, 1, 0.32, 1),
+      background-color 160ms ease,
+      color 160ms ease,
+      border-color 160ms ease,
+      box-shadow 160ms ease,
+      opacity 160ms ease;
+  }
+
+  button:active {
+    transform: scale(0.97);
+  }
+
+  a:active {
+    transform: scale(0.99);
+  }
+}
+
+/* --------------------------------------------------
+   Loading / skeleton animation
+-------------------------------------------------- */
+
+@keyframes schedula-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+.schedula-skeleton {
+  animation: schedula-pulse 1.6s ease-in-out infinite;
+  border-radius: var(--radius-sm);
+  background: #e7ece9;
+}
+
+/* --------------------------------------------------
+   Fade / slide animations
+-------------------------------------------------- */
+
+@keyframes schedula-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes schedula-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.schedula-fade-in {
+  animation: schedula-fade-in 220ms ease-out both;
+}
+
+.schedula-slide-up {
+  animation: schedula-slide-up 280ms ease-out both;
+}
+
+/* --------------------------------------------------
+   Spinner
+-------------------------------------------------- */
+
+@keyframes schedula-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.schedula-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid #cfe2dc;
+  border-top-color: var(--brand);
+  border-radius: 999px;
+  animation: schedula-spin 700ms linear infinite;
+}
+
+/* --------------------------------------------------
+   Responsive helpers
+-------------------------------------------------- */
+
+.schedula-page {
+  width: 100%;
+  max-width: 1440px;
+  margin: 0 auto;
+}
+
+.schedula-container {
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding-left: 20px;
+  padding-right: 20px;
+}
+
+@media (min-width: 640px) {
+  .schedula-container {
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .schedula-container {
+    padding-left: 32px;
+    padding-right: 32px;
+  }
+}
+
+/* --------------------------------------------------
+   Mobile-friendly scrollbar
+-------------------------------------------------- */
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd6d1 transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: #cbd6d1;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: #aebdb7;
+}
+
+/* --------------------------------------------------
+   Reduced motion accessibility
+-------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* --------------------------------------------------
+   Small-screen adjustments
+-------------------------------------------------- */
+
+@media (max-width: 639px) {
+  body {
+    overflow-x: hidden;
+  }
+
+  .schedula-container {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+}

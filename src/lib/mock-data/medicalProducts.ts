@@ -1,0 +1,108 @@
+import type { MedicalProduct } from "@/types/medicalProduct";
+
+export const medicalProducts: MedicalProduct[] = [
+  {
+    id: "medicine-001",
+    name: "Paracetamol 500mg",
+    category: "medicines",
+    brand: "Schedula Health",
+    description:
+      "Commonly used for temporary relief of fever and mild to moderate pain such as headache or body ache. Use only as directed on the label or by a healthcare professional.",
+    packSize: "10 tablets",
+    price: 25,
+    mrp: 30,
+    prescriptionRequired: false,
+    inStock: true,
+  },
+  {
+    id: "medicine-002",
+    name: "Cetirizine 10mg",
+    category: "medicines",
+    brand: "Schedula Health",
+    description:
+      "Commonly used to relieve allergy symptoms such as sneezing, runny nose, itchy eyes, and itching. Use according to the label or a healthcare professional's advice.",
+    packSize: "10 tablets",
+    price: 35,
+    mrp: 42,
+    prescriptionRequired: false,
+    inStock: true,
+  },
+  {
+    id: "medicine-003",
+    name: "Amoxicillin 500mg",
+    category: "medicines",
+    brand: "Schedula Health",
+    description:
+      "An antibiotic used for certain bacterial infections when prescribed by a qualified healthcare professional. It should not be used for viral illnesses such as common cold or flu.",
+    packSize: "10 capsules",
+    price: 95,
+    mrp: 110,
+    prescriptionRequired: true,
+    inStock: true,
+  },
+  {
+    id: "vitamin-001",
+    name: "Vitamin D3",
+    category: "vitamins",
+    brand: "Schedula Wellness",
+    description:
+      "A vitamin supplement that supports normal bone health and helps maintain vitamin D levels when supplementation is appropriate. Use as directed by a healthcare professional.",
+    packSize: "30 tablets",
+    price: 140,
+    mrp: 165,
+    prescriptionRequired: false,
+    inStock: true,
+  },
+  {
+    id: "wellness-001",
+    name: "Electrolyte Hydration Powder",
+    category: "wellness",
+    brand: "Schedula Wellness",
+    description:
+      "Helps support hydration by providing fluids and electrolytes, especially when the body has lost water and salts through sweating or mild fluid loss.",
+    packSize: "10 sachets",
+    price: 120,
+    mrp: 150,
+    prescriptionRequired: false,
+    inStock: true,
+  },
+  {
+    id: "device-001",
+    name: "Digital Thermometer",
+    category: "medical-devices",
+    brand: "Schedula Care",
+    description:
+      "A home-use device for measuring body temperature and checking for a raised temperature during illness.",
+    packSize: "1 unit",
+    price: 249,
+    mrp: 299,
+    prescriptionRequired: false,
+    inStock: true,
+  },
+  {
+    id: "personal-care-001",
+    name: "Hand Sanitizer",
+    category: "personal-care",
+    brand: "Schedula Care",
+    description:
+      "Used to reduce germs on the hands when soap and water are not readily available. Apply to clean, dry hands and follow the product label.",
+    packSize: "250 ml",
+    price: 99,
+    mrp: 120,
+    prescriptionRequired: false,
+    inStock: true,
+  },
+  {
+    id: "device-002",
+    name: "Pulse Oximeter",
+    category: "medical-devices",
+    brand: "Schedula Care",
+    description:
+      "A fingertip device used to measure blood oxygen saturation and pulse rate as a monitoring tool.",
+    packSize: "1 unit",
+    price: 699,
+    mrp: 799,
+    prescriptionRequired: false,
+    inStock: false,
+  },
+];

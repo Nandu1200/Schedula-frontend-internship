@@ -1,14 +1,35 @@
 export type Doctor = {
   id: string;
+
+  status: "active" | "inactive";
+
   name: string;
+
   specialty: string;
+
   qualification: string;
+
   experienceYears: number;
+
   email: string;
+
   phone: string;
+
   hospital: string;
+
   location: string;
+
   consultationFee: number;
+
+  onlineFee: number;
+
+  inPersonFee: number;
+
   bio: string;
+
   avatarUrl?: string;
+
+  qualificationDocument?: string;
+
+  licenseDocument?: string;
 };

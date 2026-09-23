@@ -4,7 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
 import { doctors as mockDoctors } from "@/lib/mock-data/doctors";
+import { adminDoctors } from "@/lib/mock-data/admin/doctors";
 import type { Doctor } from "@/types/doctor";
+import type { AdminDoctorStatus } from "@/types/admin";
 import type { AvailabilitySlot } from "@/types/availability";
 
 const getInitials = (name: string) => {
@@ -27,11 +29,93 @@ const formatSlotDate = (slot: AvailabilitySlot) => {
   }).format(date);
 };
 
+type DoctorRating = {
+  average: number;
+  count: number;
+};
+
+const getDoctorIdFromAppointmentId = (appointmentId: string) => {
+  const appointmentIdParts = appointmentId.split("-");
+  const slotIndex = appointmentIdParts.indexOf("slot");
+  const doctorIndex = appointmentIdParts.indexOf("doctor");
+
+  if (doctorIndex === -1 || slotIndex === -1) {
+    return null;
+  }
+
+  const doctorId = appointmentIdParts
+    .slice(doctorIndex, slotIndex)
+    .join("-");
+
+  return doctorId || null;
+};
+
+const getDoctorVerificationStatus = (
+  doctorId: string
+): AdminDoctorStatus => {
+  const storedStatus = localStorage.getItem(
+    `doctorVerificationStatus-${doctorId}`
+  );
+
+  if (
+    storedStatus === "pending" ||
+    storedStatus === "approved" ||
+    storedStatus === "rejected"
+  ) {
+    return storedStatus;
+  }
+
+  const adminDoctor = adminDoctors.find(
+    (doctor) => doctor.doctorId === doctorId
+  );
+
+  return adminDoctor?.verificationStatus ?? "pending";
+};
+
+const buildVerificationStatusMap = (
+  doctorList: Doctor[]
+): Record<string, AdminDoctorStatus> => {
+  return doctorList.reduce<
+    Record<string, AdminDoctorStatus>
+  >((statusMap, doctor) => {
+    statusMap[doctor.id] =
+      getDoctorVerificationStatus(doctor.id);
+
+    return statusMap;
+  }, {});
+};
+
+const getMockDoctorRatings = () => {
+  const demoRatings = [
+    { average: 4.5, count: 24 },
+    { average: 4.7, count: 31 },
+    { average: 4.3, count: 18 },
+    { average: 4.8, count: 27 },
+    { average: 4.1, count: 15 },
+  ];
+
+  return mockDoctors.reduce<Record<string, DoctorRating>>(
+    (ratings, doctor, index) => {
+      ratings[doctor.id] =
+        demoRatings[index % demoRatings.length];
+      return ratings;
+    },
+    {}
+  );
+};
+
 export default function DoctorsPage() {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [availableSlots, setAvailableSlots] = useState<
     Record<string, AvailabilitySlot[]>
   >({});
+  const [doctorRatings, setDoctorRatings] = useState<
+    Record<string, DoctorRating>
+  >({});
+
+  const [verificationStatuses, setVerificationStatuses] =
+    useState<Record<string, AdminDoctorStatus>>({});
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -102,6 +186,82 @@ export default function DoctorsPage() {
         });
 
         setAvailableSlots(slotMap);
+
+        /*
+         * Calculate each doctor's average rating from
+         * completed appointments that have a patient review.
+         */
+        const storedAppointments = localStorage.getItem(
+          "appointments"
+        );
+
+        const ratingMap: Record<
+          string,
+          { total: number; count: number }
+        > = {};
+
+        if (storedAppointments) {
+          try {
+            const parsedAppointments = JSON.parse(
+              storedAppointments
+            ) as Array<{
+              id?: string;
+              status?: string;
+              review?: { rating?: number };
+            }>;
+
+            parsedAppointments.forEach((appointment) => {
+              const rating = appointment.review?.rating;
+
+              if (
+                appointment.status !== "completed" ||
+                typeof rating !== "number" ||
+                rating < 1 ||
+                rating > 5 ||
+                !appointment.id
+              ) {
+                return;
+              }
+
+              const doctorId = getDoctorIdFromAppointmentId(
+                appointment.id
+              );
+
+              if (!doctorId) {
+                return;
+              }
+
+              if (!ratingMap[doctorId]) {
+                ratingMap[doctorId] = { total: 0, count: 0 };
+              }
+
+              ratingMap[doctorId].total += rating;
+              ratingMap[doctorId].count += 1;
+            });
+          } catch {
+            // Ignore invalid stored appointment data.
+          }
+        }
+
+        const calculatedRatings: Record<string, DoctorRating> = {};
+
+        Object.entries(ratingMap).forEach(
+          ([doctorId, rating]) => {
+            calculatedRatings[doctorId] = {
+              average: Number(
+                (rating.total / rating.count).toFixed(1)
+              ),
+              count: rating.count,
+            };
+          }
+        );
+
+        const mockRatings = getMockDoctorRatings();
+
+        setDoctorRatings({
+          ...mockRatings,
+          ...calculatedRatings,
+        });
         setLoading(false);
       } catch {
         setError("We couldn't load doctors.");
@@ -112,6 +272,38 @@ export default function DoctorsPage() {
     loadDoctors();
   }, []);
 
+  useEffect(() => {
+    const syncVerificationStatuses = () => {
+      setVerificationStatuses(
+        buildVerificationStatusMap(doctors)
+      );
+    };
+
+    syncVerificationStatuses();
+
+    window.addEventListener(
+      "storage",
+      syncVerificationStatuses
+    );
+
+    window.addEventListener(
+      "doctor-verification-changed",
+      syncVerificationStatuses
+    );
+
+    return () => {
+      window.removeEventListener(
+        "storage",
+        syncVerificationStatuses
+      );
+
+      window.removeEventListener(
+        "doctor-verification-changed",
+        syncVerificationStatuses
+      );
+    };
+  }, [doctors]);
+
   const doctorCountText = useMemo(() => {
     if (doctors.length === 1) {
       return "1 doctor available";
@@ -121,13 +313,13 @@ export default function DoctorsPage() {
   }, [doctors.length]);
 
   return (
-    <main className="min-h-screen bg-[#f7faf9] text-slate-900">
+    <main className="min-h-screen bg-gradient-to-br from-[#f7faf9] via-white to-emerald-50/30 text-slate-900 transition-colors duration-300">
       {/* Navbar */}
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4 lg:px-8">
+      <header className="border-b border-slate-200/80 bg-white/95 shadow-sm backdrop-blur-sm">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-3">
-            <div className="grid size-10 place-items-center rounded-xl bg-emerald-600 text-lg font-bold text-white">
+          <Link href="/" className="group flex items-center gap-3">
+            <div className="grid size-10 place-items-center rounded-xl bg-emerald-600 text-lg font-bold text-white shadow-sm transition-transform duration-200 group-hover:scale-105">
               S
             </div>
 
@@ -146,25 +338,25 @@ export default function DoctorsPage() {
           <nav className="flex items-center gap-2">
             <Link
               href="/appointments"
-              className="rounded-lg px-3.5 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+              className="rounded-xl px-3.5 py-2 text-sm font-semibold text-slate-700 transition-all duration-200 hover:bg-slate-100 hover:text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
             >
               My Appointments
             </Link>
 
-            <Link
-              href="/"
-              className="rounded-lg px-3.5 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
-            >
-              Home
-            </Link>
+           <Link
+  href="/dashboard"
+  className="rounded-xl px-3.5 py-2 text-sm font-semibold text-slate-700 transition-all duration-200 hover:bg-slate-100 hover:text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+>
+  Dashboard
+</Link>
           </nav>
         </div>
       </header>
 
       {/* Main Content */}
-      <section className="mx-auto max-w-7xl px-6 py-10 lg:px-8 lg:py-14">
+      <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8 lg:py-14">
         {/* Page Header */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="flex flex-col gap-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow duration-200 hover:shadow-md sm:flex-row sm:items-end sm:justify-between sm:p-6">
           <div>
             <p className="text-sm font-bold uppercase tracking-wider text-emerald-600">
               Find a Doctor
@@ -181,7 +373,7 @@ export default function DoctorsPage() {
           </div>
 
           {!loading && !error && (
-            <div className="rounded-full bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700">
+            <div className="w-fit rounded-full border border-emerald-100 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 shadow-sm">
               {doctorCountText}
             </div>
           )}
@@ -189,11 +381,11 @@ export default function DoctorsPage() {
 
         {/* Loading */}
         {loading && (
-          <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-8 grid gap-5 sm:mt-10 sm:grid-cols-2 lg:grid-cols-3">
             {[1, 2, 3].map((item) => (
               <div
                 key={item}
-                className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
+                className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-shadow duration-200 hover:shadow-md"
               >
                 <div className="h-14 w-14 animate-pulse rounded-full bg-slate-200" />
 
@@ -212,7 +404,7 @@ export default function DoctorsPage() {
         {/* Error */}
         {!loading && error && (
           <div
-            className="mt-10 rounded-2xl border border-red-100 bg-white p-10 text-center shadow-sm"
+            className="mt-8 rounded-2xl border border-red-100 bg-white p-8 text-center shadow-sm sm:mt-10 sm:p-10"
             role="alert"
           >
             <p className="font-semibold text-red-600">
@@ -222,7 +414,7 @@ export default function DoctorsPage() {
             <button
               type="button"
               onClick={() => window.location.reload()}
-              className="mt-5 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700"
+              className="mt-5 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-emerald-700 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
             >
               Try Again
             </button>
@@ -231,7 +423,7 @@ export default function DoctorsPage() {
 
         {/* Doctor List */}
         {!loading && !error && doctors.length > 0 && (
-          <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-8 grid gap-5 sm:mt-10 sm:grid-cols-2 lg:grid-cols-3">
             {doctors.map((doctor) => {
               const doctorSlots =
                 availableSlots[doctor.id] ?? [];
@@ -242,18 +434,31 @@ export default function DoctorsPage() {
               return (
                 <article
                   key={doctor.id}
-                  className="group flex flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-md"
+                  className="group flex flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-emerald-200 hover:shadow-lg"
                 >
                   {/* Doctor Header */}
                   <div className="flex items-start gap-4">
-                    <div className="grid size-14 shrink-0 place-items-center rounded-full bg-emerald-100 text-lg font-bold text-emerald-700">
+                    <div className="grid size-14 shrink-0 place-items-center rounded-full bg-emerald-100 text-lg font-bold text-emerald-700 ring-4 ring-emerald-50 transition-transform duration-200 group-hover:scale-105">
                       {getInitials(doctor.name)}
                     </div>
 
                     <div className="min-w-0">
-                      <h2 className="truncate text-lg font-bold text-slate-900">
-                        {doctor.name}
-                      </h2>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h2 className="truncate text-lg font-bold text-slate-900">
+                          {doctor.name}
+                        </h2>
+
+                        {verificationStatuses[doctor.id] ===
+                          "approved" && (
+                          <span
+                            className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700"
+                            aria-label="Verified Doctor"
+                          >
+                            <span aria-hidden="true">✓</span>
+                            Verified Doctor
+                          </span>
+                        )}
+                      </div>
 
                       <p className="mt-1 text-sm font-semibold text-emerald-700">
                         {doctor.specialty}
@@ -262,11 +467,38 @@ export default function DoctorsPage() {
                       <p className="mt-1 text-sm text-slate-500">
                         {doctor.experienceYears} years experience
                       </p>
+
+                      {doctorRatings[doctor.id] ? (
+                        <div className="mt-2 flex items-center gap-2">
+                          <span className="text-base font-bold text-slate-900">
+                            {doctorRatings[doctor.id].average.toFixed(1)}
+                          </span>
+
+                          <span
+                            className="text-sm tracking-wide text-yellow-500"
+                            aria-label={`${doctorRatings[doctor.id].average} out of 5 stars`}
+                          >
+                            ★★★★★
+                          </span>
+
+                          <span className="text-xs text-slate-500">
+                            ({doctorRatings[doctor.id].count} {
+                              doctorRatings[doctor.id].count === 1
+                                ? "review"
+                                : "reviews"
+                            })
+                          </span>
+                        </div>
+                      ) : (
+                        <p className="mt-2 text-xs font-medium text-slate-400">
+                          No ratings yet
+                        </p>
+                      )}
                     </div>
                   </div>
 
                   {/* Doctor Information */}
-                  <div className="mt-6 space-y-3">
+                  <div className="mt-6 space-y-3 rounded-2xl border border-slate-100 bg-slate-50/60 p-4">
                     <div className="flex items-start justify-between gap-4">
                       <span className="text-sm text-slate-500">
                         Qualification
@@ -309,18 +541,18 @@ export default function DoctorsPage() {
                   </div>
 
                   {/* Availability */}
-                  <div className="mt-6 rounded-xl bg-slate-50 p-4">
+                  <div className="mt-6 rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-white p-4 shadow-sm transition-shadow duration-200 group-hover:shadow-md">
                     <div className="flex items-center justify-between gap-3">
                       <p className="text-sm font-semibold text-slate-700">
                         Availability
                       </p>
 
                       {doctorSlots.length > 0 ? (
-                        <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                        <span className="rounded-full border border-emerald-200 bg-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-700">
                           Available
                         </span>
                       ) : (
-                        <span className="rounded-full bg-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-600">
+                        <span className="rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600">
                           No slots
                         </span>
                       )}
@@ -357,7 +589,7 @@ export default function DoctorsPage() {
                   {/* View Profile */}
                   <Link
                     href={`/doctors/${doctor.id}`}
-                    className="mt-6 flex w-full items-center justify-center rounded-xl border border-emerald-600 px-4 py-3 text-sm font-bold text-emerald-700 transition hover:bg-emerald-50"
+                    className="mt-6 flex w-full items-center justify-center rounded-xl border border-emerald-600 px-4 py-3 text-sm font-bold text-emerald-700 transition-all duration-200 hover:-translate-y-0.5 hover:bg-emerald-50 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
                   >
                     View Doctor Profile
                     <span className="ml-2">→</span>
@@ -370,7 +602,7 @@ export default function DoctorsPage() {
 
         {/* No Doctors */}
         {!loading && !error && doctors.length === 0 && (
-          <div className="mt-10 rounded-2xl border border-slate-200 bg-white px-6 py-16 text-center shadow-sm">
+          <div className="mt-8 rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center shadow-sm sm:mt-10">
             <div className="mx-auto grid size-14 place-items-center rounded-full bg-slate-100 text-xl">
               🩺
             </div>

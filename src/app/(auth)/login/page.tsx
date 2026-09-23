@@ -93,7 +93,7 @@ export default function LoginPage() {
                 className="group flex items-center gap-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md"
               >
                 <div className="grid size-14 shrink-0 place-items-center rounded-xl bg-emerald-100 text-2xl text-emerald-700">
-                  ●
+                  👤
                 </div>
 
                 <div className="min-w-0 flex-1">
@@ -117,7 +117,7 @@ export default function LoginPage() {
                 className="group flex items-center gap-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-md"
               >
                 <div className="grid size-14 shrink-0 place-items-center rounded-xl bg-emerald-100 text-2xl text-emerald-700">
-                  ♡
+                  🩺
                 </div>
 
                 <div className="min-w-0 flex-1">
