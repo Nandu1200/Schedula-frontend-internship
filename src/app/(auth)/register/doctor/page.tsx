@@ -168,9 +168,6 @@ export default function DoctorRegisterPage() {
       onlineFee: Number(formData.onlineFee),
       inPersonFee: Number(formData.inPersonFee),
 
-      // Store the actual registration date for Admin analytics.
-      registeredAt: new Date().toISOString(),
-
       bio: "",
     };
 

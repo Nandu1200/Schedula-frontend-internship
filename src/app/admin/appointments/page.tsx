@@ -2,6 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+import { hasPermission } from "@/lib/admin/permissions";
+import type { AdminUserRole } from "@/types/admin";
+
 import { getAdminAppointments } from "@/lib/utils/admin-appointments";
 import type {
   Appointment,
@@ -96,6 +99,7 @@ const formatStatusFilterValue = (status: AppointmentDisplayStatus) => {
 };
 
 export default function AdminAppointmentsPage() {
+  const [adminRole, setAdminRole] = useState<AdminUserRole | null>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -111,6 +115,23 @@ export default function AdminAppointmentsPage() {
     useState<Appointment | null>(null);
 
   const [currentPage, setCurrentPage] = useState(1);
+
+  useEffect(() => {
+    const storedRole = localStorage.getItem("admin_role");
+
+    if (
+      storedRole === "super-admin" ||
+      storedRole === "admin" ||
+      storedRole === "support"
+    ) {
+      setAdminRole(storedRole);
+    }
+  }, []);
+
+  const canViewAppointments =
+    adminRole !== null &&
+    hasPermission(adminRole, "appointments", "view");
+
 
   useEffect(() => {
     const loadAppointments = () => {
@@ -315,6 +336,10 @@ export default function AdminAppointmentsPage() {
       </div>
     );
   };
+
+  if (!canViewAppointments) {
+    return null;
+  }
 
   return (
     <main className="min-h-full bg-slate-50 px-4 py-6 sm:px-6 lg:px-8">
@@ -675,17 +700,19 @@ export default function AdminAppointmentsPage() {
                           </td>
 
                           <td className="px-5 py-4 text-right">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setSelectedAppointment(
-                                  appointment
-                                )
-                              }
-                              className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
-                            >
-                              View Details
-                            </button>
+                            {canViewAppointments && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setSelectedAppointment(
+                                    appointment
+                                  )
+                                }
+                                className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
+                              >
+                                View Details
+                              </button>
+                            )}
                           </td>
                         </tr>
                       );

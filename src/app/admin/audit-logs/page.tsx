@@ -5,6 +5,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { auditLogs } from "@/lib/mock-data/audit-logs";
 import type { AuditLog } from "@/types/audit-log";
 import { readStoredAuditLogs } from "@/lib/utils/audit-logs";
+import { hasPermission } from "@/lib/admin/permissions";
+import type { AdminUserRole } from "@/types/admin";
 
 const PAGE_SIZE = 5;
 
@@ -89,6 +91,7 @@ export default function AdminAuditLogsPage() {
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [adminRole, setAdminRole] = useState<AdminUserRole | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [actionFilter, setActionFilter] = useState<"all" | AuditLog["action"]>(
@@ -98,6 +101,14 @@ export default function AdminAuditLogsPage() {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+
+  useEffect(() => {
+    const storedRole = localStorage.getItem("admin_role") as AdminUserRole | null;
+    setAdminRole(storedRole);
+  }, []);
+
+  const canViewAuditLogs =
+    adminRole !== null && hasPermission(adminRole, "audit-logs", "view");
 
   const loadLogs = useCallback(() => {
     setIsLoading(true);
@@ -268,6 +279,10 @@ export default function AdminAuditLogsPage() {
   const firstVisibleEntry =
     filteredLogs.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
   const lastVisibleEntry = Math.min(currentPage * PAGE_SIZE, filteredLogs.length);
+
+  if (adminRole === null || !canViewAuditLogs) {
+    return null;
+  }
 
   return (
     <main className="min-h-screen bg-slate-50 p-4 sm:p-6 lg:p-8">

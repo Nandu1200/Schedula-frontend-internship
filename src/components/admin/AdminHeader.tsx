@@ -16,7 +16,16 @@ export default function AdminHeader({
     useState(false);
 
   const handleLogout = () => {
+    // Clear admin authentication session
     localStorage.removeItem("admin_authenticated");
+
+    // Clear stored admin role
+    localStorage.removeItem("admin_role");
+
+    // Close profile menu
+    setIsProfileOpen(false);
+
+    // Redirect to admin login
     router.replace("/login/admin");
   };
 

@@ -13,6 +13,8 @@ import type {
   AdminNotificationRecipient,
 } from "@/types/adminNotification";
 import type { NotificationType } from "@/lib/utils/notifications";
+import { hasPermission } from "@/lib/admin/permissions";
+import type { AdminUserRole } from "@/types/admin";
 
 type RecipientRoleFilter = "all" | "patient" | "doctor";
 
@@ -82,9 +84,23 @@ export default function AdminNotificationsPage() {
   const [historySearch, setHistorySearch] = useState("");
 
   const [loading, setLoading] = useState(true);
+  const [adminRole, setAdminRole] = useState<AdminUserRole | null>(null);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+
+  useEffect(() => {
+    const storedRole = localStorage.getItem("admin_role") as AdminUserRole | null;
+    setAdminRole(storedRole);
+  }, []);
+
+  const canViewNotifications =
+    adminRole !== null &&
+    hasPermission(adminRole, "notifications", "view");
+
+  const canCreateNotifications =
+    adminRole !== null &&
+    hasPermission(adminRole, "notifications", "create");
 
   const loadNotificationData = () => {
     setLoading(true);
@@ -286,9 +302,10 @@ export default function AdminNotificationsPage() {
         </div>
       </section>
 
-      <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="mb-5">
-          <h2 className="text-lg font-semibold text-slate-900">Send Notification</h2>
+      {canCreateNotifications && (
+        <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="mb-5">
+            <h2 className="text-lg font-semibold text-slate-900">Send Notification</h2>
           <p className="mt-1 text-sm text-slate-500">
             Choose recipients and send a notification through the existing Schedula notification system.
           </p>
@@ -535,6 +552,7 @@ export default function AdminNotificationsPage() {
               type="button"
               onClick={handleSendNotification}
               disabled={
+                !canCreateNotifications ||
                 sending ||
                 !title.trim() ||
                 !message.trim() ||
@@ -547,7 +565,8 @@ export default function AdminNotificationsPage() {
             </button>
           </div>
         </div>
-      </section>
+        </section>
+      )}
 
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-200 px-6 py-5">

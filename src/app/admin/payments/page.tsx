@@ -16,6 +16,8 @@ import type {
 } from "@/types/payment";
 import type { Doctor } from "@/types/doctor";
 import { getAdminAppointments } from "@/lib/utils/admin-appointments";
+import { hasPermission } from "@/lib/admin/permissions";
+import type { AdminUserRole } from "@/types/admin";
 
 const getPaymentStatusLabel = (
   status: PaymentStatus
@@ -133,6 +135,7 @@ const mergeUniquePeople = (
 };
 
 export default function AdminPaymentsPage() {
+  const [adminRole, setAdminRole] = useState<AdminUserRole | null>(null);
   const [selectedPayment, setSelectedPayment] =
     useState<Payment | null>(null);
 
@@ -163,6 +166,19 @@ export default function AdminPaymentsPage() {
   const [currentPage, setCurrentPage] = useState(1);
 
   const paymentsPerPage = 5;
+
+  useEffect(() => {
+    const storedRole = localStorage.getItem("admin_role") as AdminUserRole | null;
+    setAdminRole(storedRole);
+  }, []);
+
+  const canViewPayments =
+    adminRole !== null &&
+    hasPermission(adminRole, "payments", "view");
+
+  const canEditPayments =
+    adminRole !== null &&
+    hasPermission(adminRole, "payments", "edit");
 
   useEffect(() => {
     const loadPaymentData = () => {
@@ -450,6 +466,10 @@ export default function AdminPaymentsPage() {
   const handleClosePayment = () => {
     setSelectedPayment(null);
   };
+
+  if (adminRole !== null && !canViewPayments) {
+    return null;
+  }
 
   return (
     <main className="min-h-screen bg-slate-50 p-4 sm:p-6 lg:p-8">
@@ -882,15 +902,17 @@ export default function AdminPaymentsPage() {
                     </td>
 
                     <td className="px-6 py-4">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleViewPayment(payment)
-                        }
-                        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700"
-                      >
-                        View Details
-                      </button>
+                      {canViewPayments && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleViewPayment(payment)
+                          }
+                          className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700"
+                        >
+                          View Details
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}

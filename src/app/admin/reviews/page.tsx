@@ -8,6 +8,8 @@ import {
 
 import { getAdminReviews } from "@/lib/utils/admin-reviews";
 import { doctors as mockDoctors } from "@/lib/mock-data/doctors";
+import { hasPermission } from "@/lib/admin/permissions";
+import type { AdminUserRole } from "@/types/admin";
 import type { AdminReview } from "@/types/review";
 import type { Appointment } from "@/types/appointment";
 import type { Doctor } from "@/types/doctor";
@@ -142,6 +144,7 @@ export default function AdminReviewsPage() {
   const [selectedDate, setSelectedDate] = useState("");
   const [registeredDoctor, setRegisteredDoctor] =
     useState<Doctor | null>(null);
+  const [adminRole, setAdminRole] = useState<AdminUserRole | null>(null);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedReview, setSelectedReview] =
@@ -153,6 +156,23 @@ export default function AdminReviewsPage() {
   const [moderating, setModerating] = useState(false);
   const [moderationError, setModerationError] =
     useState("");
+
+  useEffect(() => {
+    const storedRole = localStorage.getItem("admin_role") as AdminUserRole | null;
+    setAdminRole(storedRole);
+  }, []);
+
+  const canViewReviews =
+    adminRole !== null &&
+    hasPermission(adminRole, "reviews", "view");
+
+  const canEditReviews =
+    adminRole !== null &&
+    hasPermission(adminRole, "reviews", "edit");
+
+  const canDeleteReviews =
+    adminRole !== null &&
+    hasPermission(adminRole, "reviews", "delete");
 
   const loadReviews = () => {
     setLoading(true);
@@ -491,6 +511,10 @@ export default function AdminReviewsPage() {
     setSelectedDate("");
     setCurrentPage(1);
   };
+
+  if (adminRole !== null && !canViewReviews) {
+    return null;
+  }
 
   return (
     <main className="min-h-screen bg-slate-50 p-4 sm:p-6 lg:p-8">
@@ -909,17 +933,19 @@ export default function AdminReviewsPage() {
 
                       <td className="px-6 py-4 text-right">
                         <div className="flex flex-wrap justify-end gap-2">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setSelectedReview(review)
-                            }
-                            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700"
-                          >
-                            View Details
-                          </button>
+                          {canViewReviews && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setSelectedReview(review)
+                              }
+                              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700"
+                            >
+                              View Details
+                            </button>
+                          )}
 
-                          {review.hidden ? (
+                          {canEditReviews && (review.hidden ? (
                             <button
                               type="button"
                               onClick={() =>
@@ -945,9 +971,9 @@ export default function AdminReviewsPage() {
                             >
                               Hide
                             </button>
-                          )}
+                          ))}
 
-                          {review.reported &&
+                          {canDeleteReviews && review.reported &&
                             !review.hidden && (
                               <button
                                 type="button"
@@ -1194,7 +1220,7 @@ export default function AdminReviewsPage() {
               </div>
 
               <div className="flex flex-col gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:justify-end">
-                {selectedReview.hidden ? (
+                {canEditReviews && (selectedReview.hidden ? (
                   <button
                     type="button"
                     onClick={() =>
@@ -1220,9 +1246,9 @@ export default function AdminReviewsPage() {
                   >
                     Hide Review
                   </button>
-                )}
+                ))}
 
-                {selectedReview.reported &&
+                {canDeleteReviews && selectedReview.reported &&
                   !selectedReview.hidden && (
                     <button
                       type="button"

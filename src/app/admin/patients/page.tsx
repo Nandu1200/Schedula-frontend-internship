@@ -4,8 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 
 import { patients as mockPatients } from "@/lib/mock-data/patients";
 import { getAdminAppointments } from "@/lib/utils/admin-appointments";
+import { hasPermission } from "@/lib/admin/permissions";
 import type { Appointment } from "@/types/appointment";
 import type { Patient } from "@/types/patient";
+import type { AdminUserRole } from "@/types/admin";
 
 type PatientAction = {
   patient: Patient;
@@ -114,6 +116,27 @@ export default function AdminPatientsPage() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [adminRole, setAdminRole] = useState<AdminUserRole | null>(null);
+
+  useEffect(() => {
+    const storedRole = localStorage.getItem("admin_role");
+
+    if (
+      storedRole === "super-admin" ||
+      storedRole === "admin" ||
+      storedRole === "support"
+    ) {
+      setAdminRole(storedRole);
+    }
+  }, []);
+
+  const canViewPatients =
+    adminRole !== null &&
+    hasPermission(adminRole, "patients", "view");
+
+  const canEditPatients =
+    adminRole !== null &&
+    hasPermission(adminRole, "patients", "edit");
 
   useEffect(() => {
     const loadPatientData = () => {
@@ -641,37 +664,41 @@ export default function AdminPatientsPage() {
 
                             <td className="px-6 py-4">
                               <div className="flex flex-wrap items-center gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    handleViewPatient(
-                                      patient
-                                    )
-                                  }
-                                  className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700"
-                                >
-                                  View
-                                </button>
+                                {canViewPatients && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleViewPatient(
+                                        patient
+                                      )
+                                    }
+                                    className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700"
+                                  >
+                                    View
+                                  </button>
+                                )}
 
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    handleOpenPatientAction(
-                                      patient
-                                    )
-                                  }
-                                  className={`rounded-lg border bg-white px-3 py-2 text-xs font-semibold transition ${
-                                    patient.status ===
+                                {canEditPatients && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleOpenPatientAction(
+                                        patient
+                                      )
+                                    }
+                                    className={`rounded-lg border bg-white px-3 py-2 text-xs font-semibold transition ${
+                                      patient.status ===
+                                      "active"
+                                        ? "border-red-200 text-red-600 hover:bg-red-50"
+                                        : "border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                                    }`}
+                                  >
+                                    {patient.status ===
                                     "active"
-                                      ? "border-red-200 text-red-600 hover:bg-red-50"
-                                      : "border-emerald-200 text-emerald-700 hover:bg-emerald-50"
-                                  }`}
-                                >
-                                  {patient.status ===
-                                  "active"
-                                    ? "Deactivate"
-                                    : "Activate"}
-                                </button>
+                                      ? "Deactivate"
+                                      : "Activate"}
+                                  </button>
+                                )}
                               </div>
                             </td>
                           </tr>
@@ -968,25 +995,27 @@ export default function AdminPatientsPage() {
                 Close
               </button>
 
-              <button
-                type="button"
-                onClick={() =>
-                  handleOpenPatientAction(
-                    selectedPatient
-                  )
-                }
-                className={`rounded-lg px-4 py-2 text-sm font-semibold text-white transition ${
-                  selectedPatient.status ===
+              {canEditPatients && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleOpenPatientAction(
+                      selectedPatient
+                    )
+                  }
+                  className={`rounded-lg px-4 py-2 text-sm font-semibold text-white transition ${
+                    selectedPatient.status ===
+                    "active"
+                      ? "bg-red-600 hover:bg-red-700"
+                      : "bg-emerald-600 hover:bg-emerald-700"
+                  }`}
+                >
+                  {selectedPatient.status ===
                   "active"
-                    ? "bg-red-600 hover:bg-red-700"
-                    : "bg-emerald-600 hover:bg-emerald-700"
-                }`}
-              >
-                {selectedPatient.status ===
-                "active"
-                  ? "Deactivate Patient"
-                  : "Activate Patient"}
-              </button>
+                    ? "Deactivate Patient"
+                    : "Activate Patient"}
+                </button>
+              )}
             </div>
           </div>
         </div>

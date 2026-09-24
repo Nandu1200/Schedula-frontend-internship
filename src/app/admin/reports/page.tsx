@@ -11,6 +11,8 @@ import type {
   ConsultationType,
 } from "@/types/appointment";
 import type { PaymentStatus } from "@/types/payment";
+import { hasPermission } from "@/lib/admin/permissions";
+import type { AdminUserRole } from "@/types/admin";
 
 type AppointmentTypeFilter = "all" | ConsultationType;
 type AppointmentStatusFilter = "all" | AppointmentStatus;
@@ -387,7 +389,20 @@ const downloadExcel = (
   ];
 
   const zipParts = createZipArchive(files);
-  const blob = new Blob(zipParts, {
+  const totalLength = zipParts.reduce(
+    (total, part) => total + part.byteLength,
+    0
+  );
+  const zipBuffer = new ArrayBuffer(totalLength);
+  const zipBytes = new Uint8Array(zipBuffer);
+
+  let offset = 0;
+  zipParts.forEach((part) => {
+    zipBytes.set(part, offset);
+    offset += part.byteLength;
+  });
+
+  const blob = new Blob([zipBuffer], {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   });
 
@@ -856,8 +871,17 @@ export default function AdminReportsPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
+  const [adminRole, setAdminRole] = useState<AdminUserRole | null>(null);
 
   const reportsPerPage = 5;
+
+  useEffect(() => {
+    const storedRole = localStorage.getItem("admin_role") as AdminUserRole | null;
+    setAdminRole(storedRole);
+  }, []);
+
+  const canViewReports =
+    adminRole !== null && hasPermission(adminRole, "reports", "view");
 
   useEffect(() => {
     const loadAppointments = () => {
@@ -1048,6 +1072,10 @@ export default function AdminReportsPage() {
   const formatStatus = (value: string) =>
     value.charAt(0).toUpperCase() + value.slice(1);
 
+  if (adminRole === null || !canViewReports) {
+    return null;
+  }
+
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-6 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl">
@@ -1081,57 +1109,61 @@ export default function AdminReportsPage() {
             </div>
 
             <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() =>
-                  downloadCsv(filteredAppointments, filteredPayments)
-                }
-                className="rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700"
-              >
-                Export CSV
-              </button>
-
-              <button
-                type="button"
-                onClick={() =>
-                  downloadExcel(
-                    filteredAppointments,
-                    filteredPayments,
-                    reportSummary,
-                    {
-                      fromDate,
-                      toDate,
-                      appointmentType,
-                      appointmentStatus,
-                      paymentStatus,
+              {canViewReports && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      downloadCsv(filteredAppointments, filteredPayments)
                     }
-                  )
-                }
-                className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
-              >
-                Export Excel
-              </button>
+                    className="rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700"
+                  >
+                    Export CSV
+                  </button>
 
-              <button
-                type="button"
-                onClick={() =>
-                  downloadPdf(
-                    filteredAppointments,
-                    filteredPayments,
-                    reportSummary,
-                    {
-                      fromDate,
-                      toDate,
-                      appointmentType,
-                      appointmentStatus,
-                      paymentStatus,
+                  <button
+                    type="button"
+                    onClick={() =>
+                      downloadExcel(
+                        filteredAppointments,
+                        filteredPayments,
+                        reportSummary,
+                        {
+                          fromDate,
+                          toDate,
+                          appointmentType,
+                          appointmentStatus,
+                          paymentStatus,
+                        }
+                      )
                     }
-                  )
-                }
-                className="rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700"
-              >
-                Export PDF
-              </button>
+                    className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
+                  >
+                    Export Excel
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      downloadPdf(
+                        filteredAppointments,
+                        filteredPayments,
+                        reportSummary,
+                        {
+                          fromDate,
+                          toDate,
+                          appointmentType,
+                          appointmentStatus,
+                          paymentStatus,
+                        }
+                      )
+                    }
+                    className="rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700"
+                  >
+                    Export PDF
+                  </button>
+                </>
+              )}
 
               <button
                 type="button"

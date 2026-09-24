@@ -2,6 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
+
+import type { AdminUserRole } from "@/types/admin";
+import { hasModuleAccess } from "@/lib/admin/permissions";
 
 type AdminSidebarProps = {
   mobileOpen?: boolean;
@@ -14,72 +18,84 @@ const menuItems = [
     href: "/admin/dashboard",
     icon: "▦",
     implemented: true,
+    module: "dashboard",
   },
   {
     label: "Doctors",
     href: "/admin/doctors",
     icon: "👨‍⚕️",
     implemented: true,
+    module: "doctors",
   },
   {
     label: "Doctor Verification",
     href: "/admin/doctor-verification",
     icon: "✓",
     implemented: true,
+    module: "doctor-verification",
   },
   {
     label: "Patients",
     href: "/admin/patients",
     icon: "♟",
     implemented: true,
+    module: "patients",
   },
   {
     label: "Appointments",
     href: "/admin/appointments",
     icon: "▣",
     implemented: true,
+    module: "appointments",
   },
   {
     label: "Payments",
     href: "/admin/payments",
     icon: "₹",
     implemented: true,
+    module: "payments",
   },
   {
     label: "Reviews",
     href: "/admin/reviews",
     icon: "★",
     implemented: true,
+    module: "reviews",
   },
   {
     label: "Notifications",
     href: "/admin/notifications",
     icon: "🔔",
     implemented: true,
+    module: "notifications",
   },
   {
     label: "Reports",
     href: "/admin/reports",
     icon: "▥",
     implemented: true,
+    module: "reports",
   },
   {
     label: "Admin Users",
     href: "/admin/users",
     icon: "♟",
     implemented: true,
+    module: "admin-users",
   },
   {
     label: "Audit Logs",
     href: "/admin/audit-logs",
     icon: "◉",
     implemented: true,
+    module: "audit-logs",
   },
   {
     label: "Settings",
     href: "/admin/settings",
     icon: "⚙",
     implemented: true,
+    module: "settings",
   },
 ];
 
@@ -88,6 +104,29 @@ export default function AdminSidebar({
   onClose,
 }: AdminSidebarProps) {
   const pathname = usePathname();
+
+  const [adminRole, setAdminRole] =
+    useState<AdminUserRole>("super-admin");
+
+  useEffect(() => {
+    const storedRole = localStorage.getItem("admin_role");
+
+    if (
+      storedRole === "super-admin" ||
+      storedRole === "admin" ||
+      storedRole === "support"
+    ) {
+      setAdminRole(storedRole);
+    }
+  }, []);
+
+  const visibleMenuItems = menuItems.filter((item) => {
+    if (!item.implemented) {
+      return true;
+    }
+
+    return hasModuleAccess(adminRole, item.module);
+  });
 
   const sidebarContent = (
     <div className="flex h-full flex-col bg-white">
@@ -117,7 +156,7 @@ export default function AdminSidebar({
         </p>
 
         <div className="space-y-2">
-          {menuItems.map((item) => {
+          {visibleMenuItems.map((item) => {
             const isActive =
               pathname === item.href ||
               (item.href !== "/admin/dashboard" &&
@@ -191,7 +230,11 @@ export default function AdminSidebar({
             </p>
 
             <p className="truncate text-xs text-slate-400">
-              Administrator
+              {adminRole === "super-admin"
+                ? "Super Admin"
+                : adminRole === "admin"
+                  ? "Administrator"
+                  : "Support"}
             </p>
           </div>
         </div>

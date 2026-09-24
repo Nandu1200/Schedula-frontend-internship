@@ -4,6 +4,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 
+const ADMIN_EMAIL = "admin@schedula.com";
+const DEFAULT_ADMIN_PASSWORD = "admin123";
+const ADMIN_PASSWORD_STORAGE_KEY = "registeredAdminPassword";
+
 export default function AdminLoginPage() {
   const router = useRouter();
 
@@ -16,11 +20,19 @@ export default function AdminLoginPage() {
 
     setError("");
 
-    if (
-      email.trim().toLowerCase() === "admin@schedula.com" &&
-      password === "admin123"
-    ) {
+    const storedPassword =
+      localStorage.getItem(ADMIN_PASSWORD_STORAGE_KEY) ??
+      DEFAULT_ADMIN_PASSWORD;
+
+    const isValidEmail =
+      email.trim().toLowerCase() === ADMIN_EMAIL;
+
+    const isValidPassword = password === storedPassword;
+
+    if (isValidEmail && isValidPassword) {
       localStorage.setItem("admin_authenticated", "true");
+      localStorage.setItem("admin_role", "super-admin");
+
       router.push("/admin/dashboard");
       return;
     }

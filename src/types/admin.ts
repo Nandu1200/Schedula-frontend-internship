@@ -77,11 +77,13 @@ export type AdminNotification = {
   read: boolean;
 };
 
+export type AdminUserRole = "super-admin" | "admin" | "support";
+
 export type AdminUser = {
   id: string;
   name: string;
   email: string;
-  role: "super-admin" | "admin";
+  role: AdminUserRole;
   status: "active" | "inactive";
   createdAt: string;
 };

@@ -10,8 +10,12 @@ import {
 import { doctors } from "@/lib/mock-data/doctors";
 import { adminDoctors } from "@/lib/mock-data/admin/doctors";
 
+import { hasPermission } from "@/lib/admin/permissions";
 import type { Doctor } from "@/types/doctor";
-import type { AdminDoctorStatus } from "@/types/admin";
+import type {
+  AdminDoctorStatus,
+  AdminUserRole,
+} from "@/types/admin";
 
 /* -------------------------------------------------------------------------- */
 /* Registered Doctor Store                                                    */
@@ -170,6 +174,9 @@ export default function DoctorVerificationPage() {
   const [isLoading, setIsLoading] =
     useState(true);
 
+  const [adminRole, setAdminRole] =
+    useState<AdminUserRole | null>(null);
+
   /* ------------------------------------------------------------------------ */
   /* Read Registered Doctor                                                   */
   /* ------------------------------------------------------------------------ */
@@ -182,6 +189,16 @@ export default function DoctorVerificationPage() {
     );
 
   useEffect(() => {
+    const storedRole = localStorage.getItem("admin_role");
+
+    if (
+      storedRole === "super-admin" ||
+      storedRole === "admin" ||
+      storedRole === "support"
+    ) {
+      setAdminRole(storedRole);
+    }
+
     const frameId = window.requestAnimationFrame(() => {
       setIsLoading(false);
     });
@@ -446,6 +463,22 @@ export default function DoctorVerificationPage() {
     setConfirmationAction(null);
     setSelectedDoctor(null);
   };
+
+  const canViewVerification =
+    adminRole !== null &&
+    hasPermission(
+      adminRole,
+      "doctor-verification",
+      "view"
+    );
+
+  const canApproveReject =
+    adminRole !== null &&
+    hasPermission(
+      adminRole,
+      "doctor-verification",
+      "approve-reject"
+    );
 
   /* ------------------------------------------------------------------------ */
   /* UI                                                                       */
@@ -742,17 +775,19 @@ export default function DoctorVerificationPage() {
 
                       {/* Action */}
                       <td className="px-6 py-4">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleViewDoctor(
-                              doctor
-                            )
-                          }
-                          className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700"
-                        >
-                          Review
-                        </button>
+                        {canViewVerification && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleViewDoctor(
+                                doctor
+                              )
+                            }
+                            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700"
+                          >
+                            Review
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );
@@ -1207,7 +1242,8 @@ export default function DoctorVerificationPage() {
                 {getVerificationStatus(
                   selectedDoctor.id,
                   verificationOverrides
-                ) === "pending" && (
+                ) === "pending" &&
+                canApproveReject && (
                   <>
                     <button
                       type="button"
@@ -1234,7 +1270,8 @@ export default function DoctorVerificationPage() {
                 {getVerificationStatus(
                   selectedDoctor.id,
                   verificationOverrides
-                ) !== "pending" && (
+                ) !== "pending" &&
+                canApproveReject && (
                   <button
                     type="button"
                     onClick={handleMoveToPending}

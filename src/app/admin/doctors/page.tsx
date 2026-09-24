@@ -4,8 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import { doctors } from "@/lib/mock-data/doctors";
 import { adminDoctors } from "@/lib/mock-data/admin/doctors";
 import StatusBadge from "@/components/admin/StatusBadge";
+import { hasPermission } from "@/lib/admin/permissions";
 import type { Doctor } from "@/types/doctor";
-import type { AdminDoctorStatus } from "@/types/admin";
+import type {
+  AdminDoctorStatus,
+  AdminUserRole,
+} from "@/types/admin";
 import { addAuditLog } from "@/lib/utils/audit-logs";
 
 const getVerificationStatus = (
@@ -56,9 +60,22 @@ export default function AdminDoctorsPage() {
   const [verificationRefreshKey, setVerificationRefreshKey] =
     useState(0);
 
+  const [adminRole, setAdminRole] =
+    useState<AdminUserRole | null>(null);
+
   const doctorsPerPage = 5;
 
   useEffect(() => {
+    const storedRole = localStorage.getItem("admin_role");
+
+    if (
+      storedRole === "super-admin" ||
+      storedRole === "admin" ||
+      storedRole === "support"
+    ) {
+      setAdminRole(storedRole);
+    }
+
     const loadFrameId =
       window.requestAnimationFrame(() => {
         try {
@@ -388,6 +405,14 @@ export default function AdminDoctorsPage() {
     specialtyFilter !== "all" ||
     verificationFilter !== "all";
 
+  const canViewDoctors =
+    adminRole !== null &&
+    hasPermission(adminRole, "doctors", "view");
+
+  const canEditDoctor =
+    adminRole !== null &&
+    hasPermission(adminRole, "doctors", "edit");
+
   return (
     <main className="min-h-screen bg-slate-50 p-4 sm:p-6 lg:p-8">
       {/* Page Header */}
@@ -689,17 +714,21 @@ export default function AdminDoctorsPage() {
                       {/* Actions */}
                       <td className="px-6 py-4">
                         <div className="flex flex-wrap items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleViewDoctor(doctor)
-                            }
-                            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700"
-                          >
-                            View
-                          </button>
+                          {canViewDoctors && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleViewDoctor(doctor)
+                              }
+                              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700"
+                            >
+                              View
+                            </button>
+                          )}
 
-                          {doctor.status === "active" ? (
+                          {canEditDoctor && (
+                            <>
+                              {doctor.status === "active" ? (
                             <button
                               type="button"
                               onClick={() =>
@@ -723,6 +752,8 @@ export default function AdminDoctorsPage() {
                             >
                               Activate
                             </button>
+                              )}
+                            </>
                           )}
                         </div>
                       </td>
