@@ -104,7 +104,9 @@ const readStoredDoctor = () => {
       return null;
     }
 
-    return JSON.parse(raw) as (typeof mockDoctors)[number];
+    return JSON.parse(raw) as (typeof mockDoctors)[number] & {
+      registeredAt?: string;
+    };
   } catch {
     return null;
   }
