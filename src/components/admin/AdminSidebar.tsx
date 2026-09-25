@@ -21,6 +21,13 @@ const menuItems = [
     module: "dashboard",
   },
   {
+  label: "Analytics",
+  href: "/admin/analytics",
+  icon: "▥",
+  implemented: true,
+  module: "analytics",
+},
+  {
     label: "Doctors",
     href: "/admin/doctors",
     icon: "👨‍⚕️",

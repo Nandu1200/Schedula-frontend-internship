@@ -4,9 +4,18 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 
-const ADMIN_EMAIL = "admin@schedula.com";
-const DEFAULT_ADMIN_PASSWORD = "admin123";
+const SUPER_ADMIN_EMAIL = "admin@schedula.com";
+const SUPER_ADMIN_DEFAULT_PASSWORD = "admin123";
+
+const ADMIN_EMAIL = "manager@schedula.com";
+const ADMIN_PASSWORD = "admin123";
+
+const SUPPORT_EMAIL = "support@schedula.com";
+const SUPPORT_PASSWORD = "support123";
+
 const ADMIN_PASSWORD_STORAGE_KEY = "registeredAdminPassword";
+
+type AdminLoginRole = "super-admin" | "admin" | "support";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -20,18 +29,34 @@ export default function AdminLoginPage() {
 
     setError("");
 
-    const storedPassword =
+    const normalizedEmail = email.trim().toLowerCase();
+
+    const storedSuperAdminPassword =
       localStorage.getItem(ADMIN_PASSWORD_STORAGE_KEY) ??
-      DEFAULT_ADMIN_PASSWORD;
+      SUPER_ADMIN_DEFAULT_PASSWORD;
 
-    const isValidEmail =
-      email.trim().toLowerCase() === ADMIN_EMAIL;
+    let loginRole: AdminLoginRole | null = null;
 
-    const isValidPassword = password === storedPassword;
+    if (
+      normalizedEmail === SUPER_ADMIN_EMAIL &&
+      password === storedSuperAdminPassword
+    ) {
+      loginRole = "super-admin";
+    } else if (
+      normalizedEmail === ADMIN_EMAIL &&
+      password === ADMIN_PASSWORD
+    ) {
+      loginRole = "admin";
+    } else if (
+      normalizedEmail === SUPPORT_EMAIL &&
+      password === SUPPORT_PASSWORD
+    ) {
+      loginRole = "support";
+    }
 
-    if (isValidEmail && isValidPassword) {
+    if (loginRole) {
       localStorage.setItem("admin_authenticated", "true");
-      localStorage.setItem("admin_role", "super-admin");
+      localStorage.setItem("admin_role", loginRole);
 
       router.push("/admin/dashboard");
       return;

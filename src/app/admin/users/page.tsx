@@ -486,6 +486,10 @@ export default function AdminUsersPage() {
                   label: "Admin",
                   value: "admin",
                 },
+                {
+                  label: "Support",
+                  value: "support",
+                },
               ]}
             />
 
