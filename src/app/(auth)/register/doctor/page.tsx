@@ -13,7 +13,8 @@ type DoctorFormData = {
   experience: string;
   hospital: string;
   location: string;
-  consultationFee: string;
+  onlineFee: string;
+  inPersonFee: string;
   password: string;
   confirmPassword: string;
 };
@@ -32,7 +33,8 @@ export default function DoctorRegisterPage() {
     experience: "",
     hospital: "",
     location: "",
-    consultationFee: "",
+    onlineFee: "",
+    inPersonFee: "",
     password: "",
     confirmPassword: "",
   });
@@ -101,12 +103,20 @@ export default function DoctorRegisterPage() {
       newErrors.location = "Location is required.";
     }
 
-    if (!formData.consultationFee) {
-      newErrors.consultationFee =
-        "Consultation fee is required.";
-    } else if (Number(formData.consultationFee) <= 0) {
-      newErrors.consultationFee =
-        "Enter a valid consultation fee.";
+    if (!formData.onlineFee) {
+      newErrors.onlineFee =
+        "Online consultation fee is required.";
+    } else if (Number(formData.onlineFee) <= 0) {
+      newErrors.onlineFee =
+        "Enter a valid online consultation fee.";
+    }
+
+    if (!formData.inPersonFee) {
+      newErrors.inPersonFee =
+        "In-person consultation fee is required.";
+    } else if (Number(formData.inPersonFee) <= 0) {
+      newErrors.inPersonFee =
+        "Enter a valid in-person consultation fee.";
     }
 
     if (!formData.password) {
@@ -142,6 +152,7 @@ export default function DoctorRegisterPage() {
 
     const doctor = {
       id: `doctor-${Date.now()}`,
+      registeredAt: new Date().toISOString(),
       name: formData.name.trim(),
       email: formData.email.trim(),
       phone: formData.phone.trim(),
@@ -150,7 +161,14 @@ export default function DoctorRegisterPage() {
       experienceYears: Number(formData.experience),
       hospital: formData.hospital.trim(),
       location: formData.location.trim(),
-      consultationFee: Number(formData.consultationFee),
+
+      // Keep old consultationFee for compatibility.
+      consultationFee: Number(formData.inPersonFee),
+
+      onlineFee: Number(formData.onlineFee),
+      inPersonFee: Number(formData.inPersonFee),
+
+      bio: "",
     };
 
     localStorage.setItem(
@@ -176,7 +194,6 @@ export default function DoctorRegisterPage() {
     <main className="min-h-screen bg-[#f7faf9] px-4 py-8 sm:px-6">
       <div className="mx-auto max-w-6xl">
         <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl">
-
           {/* Header */}
           <div className="border-b border-slate-200 px-6 py-6 sm:px-10">
             <Link
@@ -200,7 +217,6 @@ export default function DoctorRegisterPage() {
           </div>
 
           <div className="p-6 sm:p-10">
-
             <div className="mb-8">
               <p className="text-sm font-semibold uppercase tracking-wider text-emerald-600">
                 Doctor Registration
@@ -221,7 +237,6 @@ export default function DoctorRegisterPage() {
               noValidate
               className="space-y-8"
             >
-
               {/* Personal Information */}
               <section>
                 <h2 className="text-lg font-bold text-slate-900">
@@ -229,7 +244,6 @@ export default function DoctorRegisterPage() {
                 </h2>
 
                 <div className="mt-4 grid gap-5 md:grid-cols-2">
-
                   <div className="md:col-span-2">
                     <label
                       htmlFor="name"
@@ -331,7 +345,6 @@ export default function DoctorRegisterPage() {
                 </h2>
 
                 <div className="mt-4 grid gap-5 md:grid-cols-2">
-
                   <div>
                     <label
                       htmlFor="specialty"
@@ -421,22 +434,23 @@ export default function DoctorRegisterPage() {
                     )}
                   </div>
 
+                  {/* Online Fee */}
                   <div>
                     <label
-                      htmlFor="consultationFee"
+                      htmlFor="onlineFee"
                       className="mb-2 block text-sm font-semibold text-slate-700"
                     >
-                      Consultation Fee (₹)
+                      Online Consultation Fee (₹)
                     </label>
 
                     <input
-                      id="consultationFee"
+                      id="onlineFee"
                       type="number"
                       min="1"
-                      value={formData.consultationFee}
+                      value={formData.onlineFee}
                       onChange={(event) =>
                         handleChange(
-                          "consultationFee",
+                          "onlineFee",
                           event.target.value
                         )
                       }
@@ -444,9 +458,40 @@ export default function DoctorRegisterPage() {
                       className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
                     />
 
-                    {errors.consultationFee && (
+                    {errors.onlineFee && (
                       <p className="mt-1.5 text-xs text-red-600">
-                        {errors.consultationFee}
+                        {errors.onlineFee}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* In-person Fee */}
+                  <div>
+                    <label
+                      htmlFor="inPersonFee"
+                      className="mb-2 block text-sm font-semibold text-slate-700"
+                    >
+                      In-person Consultation Fee (₹)
+                    </label>
+
+                    <input
+                      id="inPersonFee"
+                      type="number"
+                      min="1"
+                      value={formData.inPersonFee}
+                      onChange={(event) =>
+                        handleChange(
+                          "inPersonFee",
+                          event.target.value
+                        )
+                      }
+                      placeholder="e.g. 599"
+                      className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                    />
+
+                    {errors.inPersonFee && (
+                      <p className="mt-1.5 text-xs text-red-600">
+                        {errors.inPersonFee}
                       </p>
                     )}
                   </div>
@@ -460,7 +505,6 @@ export default function DoctorRegisterPage() {
                 </h2>
 
                 <div className="mt-4 grid gap-5 md:grid-cols-2">
-
                   <div>
                     <label
                       htmlFor="hospital"
@@ -528,7 +572,6 @@ export default function DoctorRegisterPage() {
                 </h2>
 
                 <div className="mt-4 grid gap-5 md:grid-cols-2">
-
                   <div>
                     <label
                       htmlFor="password"
@@ -598,7 +641,6 @@ export default function DoctorRegisterPage() {
 
               {/* Submit */}
               <div className="flex flex-col gap-4 border-t border-slate-200 pt-6 sm:flex-row sm:items-center sm:justify-between">
-
                 <p className="text-sm text-slate-500">
                   Already registered?{" "}
                   <Link
@@ -615,7 +657,6 @@ export default function DoctorRegisterPage() {
                 >
                   Create Doctor Account
                 </button>
-
               </div>
             </form>
           </div>
